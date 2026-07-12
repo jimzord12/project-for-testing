@@ -51,9 +51,9 @@ function filledDraft(): AssessmentState {
       },
     },
     consent: {
-      adultConfirmed: true,
+      isAdult: true,
       nonClinicalAcknowledged: true,
-      aiAnalysis: true,
+      aiConsent: true,
     },
     preferences: {
       includeAgeMetaphor: true,

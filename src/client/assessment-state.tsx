@@ -33,9 +33,9 @@ export type AssessmentState = {
   structuredAnswers: Record<string, string>;
   narratives: Record<string, NarrativeDraft>;
   consent: {
-    adultConfirmed: boolean;
+    isAdult: boolean;
     nonClinicalAcknowledged: boolean;
-    aiAnalysis: boolean;
+    aiConsent: boolean;
   };
   preferences: {
     includeAgeMetaphor: boolean;
@@ -83,9 +83,9 @@ export const assessmentStateSchema: z.ZodType<AssessmentState> = z
     narratives: z.record(z.string(), narrativeDraftSchema),
     consent: z
       .object({
-        adultConfirmed: z.boolean(),
+        isAdult: z.boolean(),
         nonClinicalAcknowledged: z.boolean(),
-        aiAnalysis: z.boolean(),
+        aiConsent: z.boolean(),
       })
       .strict(),
     preferences: z
@@ -108,9 +108,9 @@ export function createInitialAssessmentState(
     structuredAnswers: {},
     narratives: {},
     consent: {
-      adultConfirmed: false,
+      isAdult: false,
       nonClinicalAcknowledged: false,
-      aiAnalysis: false,
+      aiConsent: false,
     },
     preferences: {
       includeAgeMetaphor: false,

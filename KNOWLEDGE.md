@@ -73,6 +73,15 @@ Record format:
 - **Detector:** `src/quirks.test.ts` → "K: vitest runs in a DOM-less (node) environment"
   (flips when a global DOM env is introduced — update this entry then).
 
+### Vitest only collects `.test.ts` files
+- **Symptom:** `pnpm vitest run src/app/foo.test.tsx` reports "No test files found" even
+  when the `.tsx` file exists.
+- **Cause:** `vitest.config.ts` includes only `src/**/*.test.ts`; `.test.tsx` component
+  tests are ignored unless the config changes.
+- **Fix:** Keep React render tests in `.test.ts` using `React.createElement`, or update the
+  Vitest include pattern before adding `.test.tsx` files.
+- **Detector:** `src/quirks.test.ts` → "K: vitest only collects .test.ts files".
+
 ### pnpm ignores the `sharp` build script
 - **Symptom:** `Ignored build scripts: sharp@0.34.5` warning on `pnpm install`.
 - **Cause:** pnpm blocks postinstall scripts by default; `sharp` ships native binaries.

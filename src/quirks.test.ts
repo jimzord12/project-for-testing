@@ -41,6 +41,12 @@ describe("KNOWLEDGE.md quirk detectors", () => {
     expect(typeof document).toBe("undefined");
   });
 
+  it("K: vitest only collects .test.ts files", () => {
+    const configSource = readFileSync(join(process.cwd(), "vitest.config.ts"), "utf8");
+    expect(configSource).toContain('include: ["src/**/*.test.ts"]');
+    expect(configSource).not.toContain(".test.tsx");
+  });
+
   it("K: the @/ path alias resolves under vitest", () => {
     // The top-of-file `@/domain/...` imports already exercise the alias at
     // collection time; this asserts the imported value to make the guard explicit.

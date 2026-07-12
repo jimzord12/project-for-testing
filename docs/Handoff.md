@@ -2,14 +2,15 @@
 
 Read this first, then `PROGRESS.md`, then the selected file in `docs/issues/`.
 
-_Last updated: 2026-07-13 (I003 implementation handoff)_
+_Last updated: 2026-07-13 (I004 implementation handoff)_
 
 ## Current state
 
-Phase 0, I001, I002, and I019 are complete and verified. I003 has been implemented with
-local verification passing (`pnpm test`, `pnpm typecheck`, `pnpm build`, and source
-`localStorage` search) and is ready for independent reviewer-Cron validation. Downstream
-client-flow product issues are still open.
+Phase 0, I001, I002, I003, and I019 are complete and verified by review. I004 has been
+implemented with local verification passing (`pnpm test`, `pnpm typecheck`, `pnpm build`,
+prohibited-claim source search, and source `localStorage` search) and is ready for
+independent reviewer-Cron validation. Downstream questionnaire-flow product issues are still
+open.
 
 The code/scaffold baseline is source commit `7eb39bd`. The current Hermes skill-test branch
 started from `d9386bd`. Authoritative product specifications are local at `docs/DOMAIN.md`
@@ -26,9 +27,9 @@ Hermes workflow state:
 - Valid board: `rmp-product-backlog-hermes-test-v2`
 - Workflow id: `rmp-product-backlog-hermes-test-v2`
 - START task id: `t_bd4b6145`
-- Current state: START is complete; I001 `t_6ee254df`, I002 `t_63b0cdfc`, and I019
-  `t_e8990795` passed review; I003 `t_3d63fb10` has been implemented and should now be
-  reviewed. Old I002 root
+- Current state: START is complete; I001 `t_6ee254df`, I002 `t_63b0cdfc`, I003
+  `t_3d63fb10`, and I019 `t_e8990795` passed review; I004 `t_2841b822` has been
+  implemented and should now be reviewed. Old I002 root
   `t_21792a89` and its decomposed children `t_5bee910c`, `t_544bc896`, `t_f1d032e5`,
   `t_1dffbdd9`, and `t_38397722` were permanently deleted after archiving. Fresh I002 task
   `t_63b0cdfc` was recreated from the original I002 body, linked as
@@ -70,9 +71,32 @@ The new config defaults are `kanban.block_loop_decompose_after: 4` and
 
 ## Next work
 
-Review I003 task `t_3d63fb10`. If it passes, complete it and allow the board to continue to
-I004/I005 downstream client-flow work. If it fails, unblock `t_3d63fb10` with precise
+Review I004 task `t_2841b822`. If it passes, complete it and allow the board to continue to
+I005 downstream questionnaire-shell work. If it fails, unblock `t_2841b822` with precise
 reviewer findings rather than decomposing it.
+
+## Latest I004 implementation notes
+
+- Added `src/app/landing-consent-flow.tsx` and wired `src/app/page.tsx` to render the
+  landing/consent flow through the I003 `AssessmentProvider`.
+- Landing copy now includes product explanation, 12–18 minute estimate, non-clinical
+  disclaimer, honest privacy summary, planned `/privacy` link, start action, and native
+  expandable `How scoring works` details.
+- Consent flow uses required `isAdult` and `nonClinicalAcknowledged` acknowledgements,
+  optional `aiConsent` and `includeAgeMetaphor` choices defaulting off, PRD AI disclosure,
+  age-metaphor explanation, native keyboard-operable inputs/buttons, and a disabled Continue
+  button until both required acknowledgements are true.
+- Aligned I003 session-state consent field names to I004 (`isAdult`, `aiConsent`) and added
+  rendered tests in `src/app/landing-consent-flow.test.ts` for gating, defaults,
+  persistence shape, disclosures, keyboard-operable native controls, prohibited claims, and
+  pressure-copy absence.
+- Added `KNOWLEDGE.md` record + `src/quirks.test.ts` detector for the Vitest `.test.ts`
+  collection quirk discovered when an initial `.test.tsx` file was ignored.
+- Experiment record: `docs/experiment/records/2026-07-13-I004-landing-consent.md`.
+- Fresh verification passed: focused `pnpm vitest run src/app/landing-consent-flow.test.ts
+  src/client/assessment-state.test.ts` (2 files / 13 tests), `pnpm knowledge:size`, full
+  `pnpm test` (11 files / 85 tests), `pnpm typecheck`, `pnpm build`, source prohibited-claim
+  search, and source `localStorage` search.
 
 ## Latest I003 implementation notes
 

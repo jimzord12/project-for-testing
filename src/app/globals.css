@@ -30,11 +30,134 @@ body {
 }
 
 main {
-  max-width: 760px;
+  max-width: 920px;
   margin: 0 auto;
   padding: 48px 16px;
 }
 
 a {
   color: var(--accent-secondary);
+}
+
+button,
+input,
+summary {
+  font: inherit;
+}
+
+button,
+summary,
+input[type="checkbox"] {
+  cursor: pointer;
+}
+
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--accent-secondary);
+  outline-offset: 3px;
+}
+
+.flow-shell {
+  display: grid;
+  gap: 24px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+  padding: 28px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+}
+
+.hero-card {
+  background:
+    radial-gradient(circle at top left, rgba(167, 139, 250, 0.18), transparent 36%),
+    var(--surface);
+}
+
+.eyebrow {
+  color: var(--accent-primary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+}
+
+.lede {
+  color: var(--text-secondary);
+  font-size: 1.15rem;
+}
+
+details {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  margin: 20px 0;
+  padding: 14px 16px;
+}
+
+summary {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.primary-action {
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: #080813;
+  font-weight: 800;
+  margin-top: 12px;
+  padding: 12px 20px;
+}
+
+.primary-action:disabled {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+fieldset {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: grid;
+  gap: 16px;
+  margin: 20px 0;
+  padding: 18px;
+}
+
+legend {
+  color: var(--text-primary);
+  font-weight: 800;
+  padding: 0 8px;
+}
+
+.choice-row {
+  align-items: flex-start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto 1fr;
+}
+
+.choice-row input {
+  height: 1.2rem;
+  margin-top: 0.18rem;
+  width: 1.2rem;
+}
+
+.choice-row small {
+  color: var(--text-muted);
+  display: block;
+  margin-top: 4px;
+}
+
+.version-note {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: -8px auto 48px;
+  max-width: 920px;
+  padding: 0 16px;
 }
