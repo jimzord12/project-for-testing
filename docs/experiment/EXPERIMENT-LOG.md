@@ -69,6 +69,7 @@ Model limitation | Environment problem | Inconclusive
 | 2026-07-13 | [I002 Kanban rollback and task recreation](records/2026-07-13-I002-kanban-rollback.md) | I002 rollback | Hermes/Codex | Tool defect |
 | 2026-07-13 | [I002 clean rerun score API](records/2026-07-13-I002-rerun-score-api.md) | I002 | Hermes/Codex | Tool defect |
 | 2026-07-13 | [I019 reproducible CI quality gates](records/2026-07-13-I019-ci-quality-gates.md) | I019 | Hermes/Codex | Environment problem |
+| 2026-07-13 | [I003 client assessment state and session persistence](records/2026-07-13-I003-client-state-persistence.md) | I003 | Hermes/Codex | Environment problem |
 
 The baseline setup restored source commit `7eb39bd`, added the local DOMAIN/PRD, installed the
 agent workflow, and prepared I001-I019. It is setup provenance, not evidence about a custom tool.

@@ -2,14 +2,14 @@
 
 Read this first, then `PROGRESS.md`, then the selected file in `docs/issues/`.
 
-_Last updated: 2026-07-13 (I019 implementation handoff)_
+_Last updated: 2026-07-13 (I003 implementation handoff)_
 
 ## Current state
 
-Phase 0, I001, and I002 are complete and verified. I019 has been implemented with local
-verification passing (`pnpm test`, `pnpm typecheck`, `pnpm build`, and workflow secret
-scan) and is ready for independent reviewer-Cron validation. Downstream product issues are
-still open.
+Phase 0, I001, I002, and I019 are complete and verified. I003 has been implemented with
+local verification passing (`pnpm test`, `pnpm typecheck`, `pnpm build`, and source
+`localStorage` search) and is ready for independent reviewer-Cron validation. Downstream
+client-flow product issues are still open.
 
 The code/scaffold baseline is source commit `7eb39bd`. The current Hermes skill-test branch
 started from `d9386bd`. Authoritative product specifications are local at `docs/DOMAIN.md`
@@ -26,8 +26,9 @@ Hermes workflow state:
 - Valid board: `rmp-product-backlog-hermes-test-v2`
 - Workflow id: `rmp-product-backlog-hermes-test-v2`
 - START task id: `t_bd4b6145`
-- Current state: START is complete; I001 `t_6ee254df` and I002 `t_63b0cdfc` passed review;
-  I019 `t_e8990795` has been implemented and should now be reviewed. Old I002 root
+- Current state: START is complete; I001 `t_6ee254df`, I002 `t_63b0cdfc`, and I019
+  `t_e8990795` passed review; I003 `t_3d63fb10` has been implemented and should now be
+  reviewed. Old I002 root
   `t_21792a89` and its decomposed children `t_5bee910c`, `t_544bc896`, `t_f1d032e5`,
   `t_1dffbdd9`, and `t_38397722` were permanently deleted after archiving. Fresh I002 task
   `t_63b0cdfc` was recreated from the original I002 body, linked as
@@ -69,9 +70,23 @@ The new config defaults are `kanban.block_loop_decompose_after: 4` and
 
 ## Next work
 
-Review I019 task `t_e8990795`. If it passes, complete it and allow the board to continue to
-I003, which is downstream of I019 in this generated board. If it fails, unblock
-`t_e8990795` with precise reviewer findings rather than decomposing it.
+Review I003 task `t_3d63fb10`. If it passes, complete it and allow the board to continue to
+I004/I005 downstream client-flow work. If it fails, unblock `t_3d63fb10` with precise
+reviewer findings rather than decomposing it.
+
+## Latest I003 implementation notes
+
+- Added `src/client/assessment-state.tsx` with the PRD §18 `AssessmentState`, reducer,
+  React provider/hook, session-storage serialization/deserialization helpers, debounced
+  persistence, version-mismatch scoring guard with `discard` and `export_raw_local_draft`
+  recovery actions, and a public-questionnaire client cache backed by injected fetch/storage.
+- Added `src/client/assessment-state.test.ts` covering refresh restoration, storage boundary
+  behavior, version mismatch blocking/recovery actions, debounced writes, and cached/offline
+  public questionnaire navigation data.
+- Experiment record: `docs/experiment/records/2026-07-13-I003-client-state-persistence.md`.
+- Fresh verification passed: focused `pnpm vitest run src/client/assessment-state.test.ts`
+  (1 file / 6 tests), full `pnpm test` (10 files / 77 tests), `pnpm typecheck`, `pnpm build`,
+  and Git Bash source search for `localStorage` (no matches in `src`).
 
 ## Latest I019 implementation notes
 

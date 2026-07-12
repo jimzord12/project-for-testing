@@ -5,7 +5,7 @@ belong in `docs/experiment/`; they do not change issue status.
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
 
-Last updated: 2026-07-13 (I019 CI quality gates implemented)
+Last updated: 2026-07-13 (I003 client state implemented)
 
 ## Milestones
 
@@ -37,7 +37,7 @@ Last updated: 2026-07-13 (I019 CI quality gates implemented)
 | ---------------------------------------------------- | ----------------------------------------------------- | ----- | ---------------- | ------ |
 | [I001](docs/issues/I001-questionnaire-api.md)        | Public questionnaire API                              | A     | Phase 0          | ✅     |
 | [I002](docs/issues/I002-score-api.md)                | Server-authoritative score API                        | A     | Phase 0          | ✅     |
-| [I003](docs/issues/I003-client-state-persistence.md) | Client state and session persistence                  | B     | I001             | ⬜     |
+| [I003](docs/issues/I003-client-state-persistence.md) | Client state and session persistence                  | B     | I001             | ✅     |
 | [I004](docs/issues/I004-landing-consent.md)          | Landing, eligibility, consent, and preference choices | B     | I003             | ⬜     |
 | [I005](docs/issues/I005-questionnaire-shell.md)      | Accessible structured-question flow                   | B     | I003             | ⬜     |
 | [I006](docs/issues/I006-narrative-ui.md)             | Optional narrative exercises                          | B     | I005             | ⬜     |
