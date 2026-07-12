@@ -2,21 +2,31 @@
 
 Read this first, then `PROGRESS.md`, then the selected file in `docs/issues/`.
 
-_Last updated: 2026-07-12 (experimental Phase 1 baseline created)_
+_Last updated: 2026-07-13 (I001 complete)_
 
 ## Current state
 
-Phase 0 is complete and verified. The repository contains the Next.js shell and pure domain
-core only. All product issues I001-I019 are open; no Phase 1+ product implementation exists.
+Phase 0 is complete and verified. I001 is complete in the working tree and reviewed through
+Hermes Kanban. I002 is the next API foundation issue.
 
-The code/scaffold baseline is source commit `7eb39bd`. Authoritative product specifications
-are local at `docs/DOMAIN.md` and `docs/PRD.md`.
+The code/scaffold baseline is source commit `7eb39bd`. The current Hermes skill-test branch
+started from `d9386bd`. Authoritative product specifications are local at `docs/DOMAIN.md`
+and `docs/PRD.md`.
+
+## Latest I001 implementation notes
+
+- Added `src/app/api/v1/questionnaire/route.ts` with a Zod response schema, static cache
+  header, and response construction from `getPublicQuestionnaire()` plus the scoring version.
+- Added `src/app/api/v1/questionnaire/route.test.ts` contract tests for schema validation,
+  cache header, 26-step canonical ordering, narrative field caps, and absence of `score`.
+- Verification passed: focused questionnaire route tests, `pnpm test`, `pnpm typecheck`,
+  `pnpm build`, and `grep -n "getPublicQuestionnaire" src/app/api/v1/questionnaire/route.ts`.
+- Experiment record: `docs/experiment/records/2026-07-13-I001-hermes-public-questionnaire-api.md`.
 
 ## Next work
 
-I001 and I002 are the first unblocked product issues. Use `.agents/skills/do-next-issue/` or
-the Claude `/do-next-issue` command to select work, inspect the branch/status, and create an
-issue-scoped branch.
+I002 is the next API foundation issue. Use the issue file at `docs/issues/I002-score-api.md`
+and keep the server-authoritative scoring boundary intact.
 
 ## Experiment protocol
 

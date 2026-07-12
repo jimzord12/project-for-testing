@@ -5,14 +5,14 @@ belong in `docs/experiment/`; they do not change issue status.
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
 
-Last updated: 2026-07-12 (Phase 1 baseline)
+Last updated: 2026-07-13 (I001 complete)
 
 ## Milestones
 
 | Phase | Theme                                                                 | Status  |
 | ----- | --------------------------------------------------------------------- | ------- |
 | 0     | Domain core: scaffold, canonical bank, deterministic scoring + tests  | ✅ done |
-| A     | API foundation: questionnaire and score endpoints                     | ⬜      |
+| A     | API foundation: questionnaire and score endpoints                     | 🟡      |
 | B     | Client flow: consent → questionnaire → review → deterministic results | ⬜      |
 | C     | Optional AI layer: provider, safety, analysis                         | ⬜      |
 | D     | Cross-cutting privacy, observability, rate limits, security, CI       | ⬜      |
@@ -35,7 +35,7 @@ Last updated: 2026-07-12 (Phase 1 baseline)
 
 | Issue                                                | Title                                                 | Phase | Depends on       | Status |
 | ---------------------------------------------------- | ----------------------------------------------------- | ----- | ---------------- | ------ |
-| [I001](docs/issues/I001-questionnaire-api.md)        | Public questionnaire API                              | A     | Phase 0          | ⬜     |
+| [I001](docs/issues/I001-questionnaire-api.md)        | Public questionnaire API                              | A     | Phase 0          | ✅     |
 | [I002](docs/issues/I002-score-api.md)                | Server-authoritative score API                        | A     | Phase 0          | ⬜     |
 | [I003](docs/issues/I003-client-state-persistence.md) | Client state and session persistence                  | B     | I001             | ⬜     |
 | [I004](docs/issues/I004-landing-consent.md)          | Landing, eligibility, consent, and preference choices | B     | I003             | ⬜     |

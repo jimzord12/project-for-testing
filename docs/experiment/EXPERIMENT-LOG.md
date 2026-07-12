@@ -59,6 +59,7 @@ Model limitation | Environment problem | Inconclusive
 | Date       | Record                                      | Issue | Tool  | Classification |
 | ---------- | ------------------------------------------- | ----- | ----- | -------------- |
 | 2026-07-12 | Phase 1 experimental baseline setup (setup) | —     | Codex | Not evaluated  |
+| 2026-07-13 | [I001 public questionnaire API via Hermes Kanban](records/2026-07-13-I001-hermes-public-questionnaire-api.md) | I001 | Hermes/Codex | Tool defect |
 
 The baseline setup restored source commit `7eb39bd`, added the local DOMAIN/PRD, installed the
 agent workflow, and prepared I001-I019. It is setup provenance, not evidence about a custom tool.
