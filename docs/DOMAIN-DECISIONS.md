@@ -1,7 +1,7 @@
 # Domain Decisions & Clarifications
 
 This document records resolutions for points where the source documents
-(`Psychological-Maturity-Questionnaire.DOMAIN.md`, `Psychological-Maturity-App.PRD.md`)
+(`docs/DOMAIN.md`, `docs/PRD.md`)
 are silent or ambiguous. Per DOMAIN §17, these are **clarifications**, not changes to
 question wording, answer order, score maps, rubric rules, or the AI prompt — so they do
 **not** require a `questionnaire_version` / `scoring_version` / `prompt_version` increment.
@@ -35,10 +35,10 @@ items in <dimension>" state (handled in the results-screen issue), not a fabrica
 
 ## DD-2 — Narrative confidence when exactly one exercise meets its threshold
 
-**Source:** DOMAIN §10.4 governs *scoreability*: both exercises meeting threshold →
+**Source:** DOMAIN §10.4 governs _scoreability_: both exercises meeting threshold →
 scored; "either exercise fails its minimum-content threshold" → `limited_evidence`; both
 skipped or below threshold → `not_scored` (never zero). DOMAIN §11.5 governs the separate
-*narrative confidence* label: `High` (both meet), `Moderate` (one meets and the other
+_narrative confidence_ label: `High` (both meet), `Moderate` (one meets and the other
 contains meaningful content), `Low` (only one short exercise contains useful content),
 `Not available` (no scorable content). §11.5 does **not** define the case "one meets the
 threshold and the other is empty/skipped."
@@ -100,3 +100,43 @@ does **not** trigger the deduction (strict "more than"). The deduction applies o
 regression toward `>= 75`.
 
 **Implemented in:** `src/domain/confidence.ts` (`CONSISTENCY_PAIRS`, deduction loop).
+
+---
+
+## DD-5 — Provider-agnostic AI integration uses the Vercel AI SDK
+
+**Source:** PRD §15.1, §15.2, §15.6, §15.8, and §11 require provider portability,
+schema-constrained output, graceful disabled behavior, and server-only credentials.
+
+**Decision:** I010 will use the Vercel AI SDK with the official Anthropic and OpenAI provider
+packages behind one server-only application wrapper. Provider, model, API key, and optional
+base URL remain environment-driven. Z.AI's Anthropic-compatible endpoint is configured
+through the Anthropic provider's base URL. The domain layer never imports the SDK.
+
+**Rationale:** The SDK provides schema-constrained generation, provider portability, timeout,
+and retry primitives without duplicating transport adapters. The application wrapper remains
+the stable seam used by routes and tests.
+
+**Planned in:** I010 and I011.
+
+---
+
+## DD-6 — Dimension score band labels
+
+**Source:** DOMAIN §12.1 requires descriptive dimension bands but does not define names or
+cut-points. PRD §8 requires neutral, non-clinical language.
+
+**Decision:** Use these labels:
+
+| Score  | Label       |
+| ------ | ----------- |
+| 0-24   | Emerging    |
+| 25-49  | Developing  |
+| 50-74  | Established |
+| 75-89  | Proficient  |
+| 90-100 | Integrated  |
+
+**Rationale:** The boundaries align with the normalized 1-5 item scale while avoiding
+clinical or judgmental terminology.
+
+**Planned in:** I008.

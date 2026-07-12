@@ -1,90 +1,52 @@
-# phycological-age-test
+# Reflective Maturity Profile — AI Development Experiment
 
-An online **Reflective Maturity Profile** (working title: *Psychological Age Test*) — a
-privacy-first, deterministic self-assessment of maturity-related behaviors. Built mainly
-for fun, to reflect on whether people today are more (or less) mature than they think. 👴👵
+This repository is a controlled implementation baseline for evaluating custom AI development
+tools. The product is a privacy-first reflective maturity assessment, but the experiment is
+about how well AI tools select, implement, verify, and hand off scoped engineering work.
 
-> This is a reflective self-assessment, **not** a diagnosis or a scientifically validated
-> measure of literal psychological age. Results depend on self-report, interpretation,
-> current circumstances, and how specifically you answer.
+> Reflective Maturity Profile is a self-reflection tool, not a diagnosis or a scientifically
+> validated measure of literal psychological age.
 
-## Status
+## Baseline status
 
-This repository is being built in increments following the project handoff and PRD. The
-**current increment delivers the deterministic scoring core** (domain types, the canonical
-`RMP-1.0` question bank, and the pure scoring/confidence/narrative functions) with full
-unit tests. The questionnaire UI, `/api/v1` endpoints, and the AI analysis layer are
-intentionally **not** in this increment (handoff sequence: scoring + tests first).
+Phase 0 is complete: the Next.js/TypeScript scaffold and pure deterministic domain core are
+present and tested. Product implementation begins with I001. No questionnaire API, client
+assessment flow, AI provider integration, or delivery layer has been implemented.
 
-## Source of truth
+The Phase 0 code was restored from source commit `7eb39bd`, immediately before I001 began.
+This makes repeated tool experiments comparable from a known starting point.
 
-The domain is governed by two documents (kept outside this repo):
+## Start here
 
-1. `Psychological-Maturity-Questionnaire.DOMAIN.md` — authoritative for questionnaire
-   meaning, wording, score maps, formulas, and interpretation rules.
-2. `Psychological-Maturity-App.PRD.md` — product/technical specification.
+- [`AGENTS.md`](AGENTS.md) — canonical working rules for humans and AI agents.
+- [`docs/DOMAIN.md`](docs/DOMAIN.md) — questionnaire, scoring, rubric, and interpretation.
+- [`docs/PRD.md`](docs/PRD.md) — product and technical requirements.
+- [`PROGRESS.md`](PROGRESS.md) — authoritative delivery state and issue DAG.
+- [`docs/Handoff.md`](docs/Handoff.md) — current working context.
+- [`docs/issues/`](docs/issues/README.md) — I001-I019 implementation contracts.
+- [`docs/experiment/EXPERIMENT-LOG.md`](docs/experiment/EXPERIMENT-LOG.md) — AI-tool
+  observations, hypotheses, and follow-ups.
 
-Question wording, answer order, score maps, rubric rules, and prompt changes require a
-**version increment** (`questionnaire_version`, `scoring_version`, `prompt_version`).
-
-## Tech stack
-
-- Next.js 16 + React 19 + TypeScript (strict)
-- Zod (runtime validation — used as the API layer is added)
-- Vitest (unit tests)
-
-## Getting started
+## Phase 0 verification
 
 ```bash
-pnpm install        # Node >= 22, pnpm >= 10
-pnpm test           # run the deterministic scoring unit tests
-pnpm typecheck      # tsc --noEmit
-pnpm dev            # placeholder landing at http://localhost:3000
+pnpm install --frozen-lockfile
+pnpm test
+pnpm typecheck
+pnpm build
 ```
 
-Copy `.env.example` to `.env.local` for local configuration. The app runs fully with **AI
-disabled** (the default); no secrets are required for deterministic scoring.
+Node 22 or newer and the pinned pnpm version are required. Copy `.env.example` to
+`.env.local` when needed; Phase 0 and deterministic scoring require no provider credentials.
 
-## The domain layer (`src/domain`)
+## Experimental discipline
 
-Pure, framework-free modules (PRD §12 dependency rule — `domain/` must not import
-framework, database, network, or AI-provider code):
+- Use one issue-scoped branch per implementation attempt.
+- Record the tool, model, prompt/workflow, starting commit, expected behavior, observations,
+  and verification evidence.
+- Classify failures before changing the tool or issue contract.
+- Do not mark product work complete solely because an agent claims success.
+- Keep experiment observations separate from `PROGRESS.md` and `docs/Handoff.md`.
 
-| Module                | Responsibility                                                             |
-| --------------------- | ------------------------------------------------------------------------- |
-| `versions.ts`         | Canonical `RMP-1.0` / `RMP-SCORE-1.0` / `RMP-AI-1.0` identifiers.          |
-| `result-types.ts`     | Discriminated-union result types (no free-form status strings).           |
-| `questionnaire.ts`    | Canonical 24-item bank + 2 narrative exercises; server-owned score maps.  |
-| `scoring.ts`          | Validation, dimension scoring, Structured Maturity Index, profile balance, age metaphor. |
-| `confidence.ts`       | Confidence score, deductions, and machine-readable reasons.               |
-| `narrative-rubric.ts` | Word counting, content thresholds, and the application-side narrative score. |
-
-### Key scoring rules (from the Domain document)
-
-- **Dimension score**: `round(((mean - 1) / 4) * 100)` over scored items only.
-  `Not applicable` is excluded from the denominator, never scored as immature.
-- **Reportable** when ≥ 4 of 5 items answered (≥ 3 of 4 for Identity Stability), else
-  `insufficient_data`.
-- **Structured Maturity Index**: equal-weighted mean of the five normalized dimensions;
-  `null` if any dimension is insufficient.
-- **Narrative score**: computed by application code from the model's rubric values
-  (the model never decides the score). `not_scored` (never zero) when neither narrative
-  exercise meets its word threshold.
-- **Confidence** is reported separately from the maturity score and never changes it.
-
-## AI provider direction (next increment)
-
-The AI analysis layer will be **provider-agnostic** behind an `AnalysisProvider`
-interface, configured via environment (see `.env.example`). The intended provider is the
-**Z.AI GLM Coding Plan**, which exposes an **Anthropic Messages-compatible** endpoint
-(`https://api.z.ai/api/anthropic`) — so the same Messages API shape works for Anthropic
-and GLM. An OpenAI-compatible adapter is also supported. The model never modifies
-deterministic scores; its structured output is validated against a strict schema.
-
-## Testing
-
-```bash
-pnpm test            # all unit tests
-pnpm test:watch      # watch mode
-pnpm test:coverage   # with coverage
-```
+The repository is intentionally public-ready: never commit credentials, real user assessment
+content, or provider payloads.

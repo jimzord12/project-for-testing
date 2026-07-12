@@ -7,7 +7,7 @@ Canonical guide for any agent (or human) working in this repository. Read this f
 
 ## 1. Project vision & purpose
 
-**Reflective Maturity Profile** (working public title: *Psychological Age Test*) is a
+**Reflective Maturity Profile** is a
 privacy-first web app that guides an adult through a reflective self-assessment of
 maturity-related behaviors and returns a **deterministic** maturity profile, plus an
 **optional**, clearly-qualified AI-assisted narrative analysis.
@@ -22,11 +22,11 @@ never block, alter, or gate the deterministic results.
 
 ## 2. Source of truth & precedence
 
-Two external documents govern the domain (kept with the project handoff, not in-repo):
+Two in-repository documents govern the domain:
 
-1. `Psychological-Maturity-Questionnaire.DOMAIN.md` — authoritative for questionnaire
+1. `docs/DOMAIN.md` — authoritative for questionnaire
    meaning, wording, score maps, formulas, rubric, confidence, and interpretation.
-2. `Psychological-Maturity-App.PRD.md` — product + technical specification.
+2. `docs/PRD.md` — product + technical specification.
 
 **Precedence when requirements conflict** (PRD §2): DOMAIN rules → PRD safety/privacy/
 security → PRD acceptance criteria → PRD UX → PRD architecture → implementer choices.
@@ -38,7 +38,7 @@ Where those docs are silent or ambiguous, resolutions live in
 
 - **Next.js 16** (App Router, Turbopack) + **React 19**
 - **TypeScript** strict (`noUncheckedIndexedAccess`, `verbatimModuleSyntax` — see KNOWLEDGE.md)
-- **Zod** for runtime validation (used as API layers land)
+- **Zod** for runtime validation
 - **Vitest** for unit tests; Playwright planned for E2E (issue I015)
 - **pnpm** (pinned `packageManager`), Node ≥ 22
 
@@ -46,8 +46,7 @@ Where those docs are silent or ambiguous, resolutions live in
 
 ```
 src/
-  app/                      # Next.js App Router (UI + /api/v1 routes as they land)
-    api/v1/                 # questionnaire (I001), assessments/score (I002), analyze (I011)
+  app/                      # Phase 0 Next.js shell; API routes begin with I001
     layout.tsx, page.tsx, globals.css
   domain/                   # PURE, framework-free domain core (see dependency rule)
     versions.ts             # RMP-1.0 / RMP-SCORE-1.0 / RMP-AI-1.0 identifiers
@@ -57,11 +56,13 @@ src/
     confidence.ts           # confidence score + machine-readable reasons
     narrative-rubric.ts     # word counts, content thresholds, narrative score
     *.test.ts               # co-located unit tests
-  server/                   # (planned) ai-provider, analysis-service, safety-service, rate-limit, logging
 docs/
+  DOMAIN.md                 # authoritative questionnaire and scoring specification
+  PRD.md                    # product and technical specification
   DOMAIN-DECISIONS.md       # DD-* clarifications for spec gaps
   Handoff.md                # rolling agent-to-agent handoff (read on arrival)
-  issues/                   # I001–I018 self-contained work items + README
+  issues/                   # I001–I019 self-contained work items + README
+  experiment/               # AI-tool protocol and append-only observations
 PROGRESS.md                 # delivery status / milestone tracker (root)
 KNOWLEDGE.md                # project quirks & edge cases (root)
 scripts/check-knowledge-size.sh
@@ -74,16 +75,35 @@ no network, no I/O) so results are deterministic and testable.
 ## 5. The do's and don'ts
 
 **Do**
+
 - Read `docs/Handoff.md` first, then `PROGRESS.md` and the relevant `docs/issues/` file.
-- Keep `pnpm check`-equivalents green: run `pnpm test` and `pnpm typecheck` before committing.
+- Keep the Phase 0 verification sequence green: `pnpm test`, `pnpm typecheck`, then
+  `pnpm build`. Issues may strengthen this gate as tooling is added.
 - Add tests with every change; co-locate `*.test.ts` next to the code.
 - Preserve domain identifiers and version values exactly.
 - Land work as the vertical slices described in `docs/issues/`; update `PROGRESS.md` status.
 - Record newly-discovered quirks in `KNOWLEDGE.md` with a detector test where practical,
   then run the size script (full routine in §6).
 - Document any necessary deviation as a new `DD-*` in `docs/DOMAIN-DECISIONS.md`.
+- Record AI-tool observations in `docs/experiment/EXPERIMENT-LOG.md`; never use an
+  experiment observation alone to mark product work complete.
+- **Prefer one branch per issue** — when starting a new issue, recommend creating a
+  dedicated branch rather than piling work onto the current branch. This keeps diffs
+  reviewable and makes it easy to isolate or revert a single issue. Not a hard rule —
+  use judgment when issues are trivially small or tightly coupled.
+- **Branch naming convention** — branch names **must** include the issue or task identifier
+  whenever one exists. Use the format `<type>/<identifier>-<short-slug>`, e.g.:
+  - `feat/I005-questionnaire-shell`
+  - `fix/I002-score-validation`
+  - `chore/I014-csp-headers`
+
+  Common types: `feat` (new feature/issue), `fix` (bug fix), `chore` (docs, config,
+  tooling), `refactor`. The identifier portion (`I001`–`I019`, or a task ID) is
+  **required** when the work is tied to a known issue; omit it only for truly ad-hoc
+  branches with no associated issue.
 
 **Don't**
+
 - Don't change question wording, answer order, score maps, formulas, rubric rules, or the
   AI prompt without a **version increment** (DOMAIN §17). These are not free edits.
 - Don't expose numeric option scores to the client (use `getPublicQuestionnaire()`).
@@ -94,14 +114,37 @@ no network, no I/O) so results are deterministic and testable.
 - Don't persist or log raw narrative text; treat it as untrusted input (prompt injection).
 - Don't open a PR unless explicitly asked.
 
-## 6. Mental model — Handoff.md & KNOWLEDGE.md
+## 6. Workflow process
+
+When asked how to work in this repo, follow this process in order:
+
+1. Read `docs/Handoff.md` first, then `PROGRESS.md`, then the relevant file in
+   `docs/issues/`.
+2. Identify the next issue or task from the active milestone/issue list. If work is issue-
+   scoped, prefer a dedicated branch and include the issue ID in the branch name.
+3. Implement the issue as a vertical slice that matches the issue file's scope and
+   acceptance criteria. Keep `src/domain/` pure and preserve the versioned domain
+   contracts.
+4. Add or update tests with the change. Co-locate `*.test.ts` next to the code when
+   practical.
+5. Verify the result with relevant focused tests first, then `pnpm test`, `pnpm typecheck`,
+   and `pnpm build` before considering the work done. Use a stronger issue-specific gate when
+   the issue introduces one.
+6. If the change introduces a spec ambiguity, record it as a new `DD-*` in
+   `docs/DOMAIN-DECISIONS.md`.
+7. If you discover a tooling or behavior quirk, record it in `KNOWLEDGE.md`, add a
+   detector test when practical, and run the knowledge size check afterward.
+8. Update `docs/Handoff.md` at the end of the session and update `PROGRESS.md` when an
+   issue is finished.
+
+## 7. Mental model — Handoff.md & KNOWLEDGE.md
 
 These two files exist so each agent starts where the last one left off and the project feels
 like one developer built it.
 
 - **`docs/Handoff.md`** — narrative continuity: current state, what just happened, what to do
   next, open questions, and any warnings. Update it at the end of a working session.
-- **`KNOWLEDGE.md`** — terse catalogue of *quirks/edge cases* discovered only by working on
+- **`KNOWLEDGE.md`** — terse catalogue of _quirks/edge cases_ discovered only by working on
   the project (e.g. a tooling gotcha). These are NOT architecture decisions (those go to
   `docs/DOMAIN-DECISIONS.md`) — they are infrastructure/behavior surprises that would
   otherwise cost the next agent a debug loop. Keep each record short and to the point.
@@ -124,14 +167,14 @@ If the file is above **150 KB**, add a note at the top of `docs/Handoff.md` inst
 next agent that their **first** action is to compress and distill `KNOWLEDGE.md` before
 doing anything else. Do not let it grow unbounded.
 
-## 7. Quick start
+## 8. Quick start
 
 ```bash
 pnpm install          # Node >= 22
-pnpm test             # unit tests (Vitest)
-pnpm typecheck        # tsc --noEmit
-pnpm build            # production build (Next 16)
-pnpm dev              # http://localhost:3000 (placeholder landing for now)
+pnpm test             # Phase 0 domain suite
+pnpm typecheck        # strict TypeScript validation
+pnpm build            # production build
+pnpm dev              # http://localhost:3000
 ```
 
 The app must always run with **AI disabled** (the default). Copy `.env.example` to

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Do Next Issue"
+  short_description: "Start the next repository issue safely"
+  default_prompt: "Use $do-next-issue to start working on the next open issue."
