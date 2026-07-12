@@ -1,30 +1,54 @@
-# Issues — decomposed remaining work
+# Issues — Phase 1+ implementation DAG
 
-Each file is a self-contained, independently-grabbable vertical slice with its own scope,
-acceptance criteria, and references to the governing PRD/DOMAIN sections. Status is tracked
-in the root [`PROGRESS.md`](../../PROGRESS.md).
+Each file is a self-contained vertical slice with context, explicit in/out scope, objective
+acceptance criteria, dependencies, and governing references. Status is tracked only in
+`PROGRESS.md` and the issue header.
 
-## Conventions
+## Governing rules
 
-- **Source-of-truth order** (PRD §2): DOMAIN rules → PRD safety/privacy/security → PRD
-  acceptance criteria → PRD UX → PRD architecture → implementer choices.
-- **Dependency rule** (PRD §12): UI and API may depend on `src/domain/`; `src/domain/` must
-  not depend on framework, database, network, or AI-provider code.
-- Do not modify question wording, score maps, formulas, or the AI rubric without a versioned
-  domain change (DOMAIN §17). Record any necessary deviation in
-  [`../DOMAIN-DECISIONS.md`](../DOMAIN-DECISIONS.md).
-- Each issue should land with its own tests and keep `pnpm check` + `pnpm test` green.
+- Precedence: `docs/DOMAIN.md` → PRD safety/privacy/security → PRD acceptance criteria → PRD
+  UX → PRD architecture → implementer choice.
+- `src/domain/` remains pure and framework/network/provider independent.
+- Questionnaire wording, answer order, score maps, formulas, rubric, or prompt changes require
+  the applicable version increment.
+- Every issue includes tests for its behavior and keeps the Phase 0 verification sequence green.
+- A documented experiment observation is evidence about a tool run, not proof that an issue is
+  complete.
 
-## Suggested order
+## Dependency order
 
+```text
+Phase A: I001, I002
+
+Phase B:
+  I001 → I003 → I004
+             → I005 → I006 → I007
+  I002 + I003 → I008 → I009
+
+Phase C:
+  I010 → I012
+  I002 + I010 + I012 → I011
+
+Phase D:
+  Phase 0 → I019
+  I002 + I011 → I013
+  I002 + I008 + I011 + I019 → I014
+
+Phase E:
+  I008 + I009 + I011 → I015
+  I005 + I006 + I007 + I008 → I016
+  I011 + I012 → I017
+
+Phase F:
+  I018 may start early and is finalized after I013 and I014.
 ```
-A (API):      I001 → I002
-B (client):   I003 → I004 → I005 → I006 → I007 → I008 → I009
-C (AI):       I010, I012 → I011
-D (cross):    I013, I014
-E (QA):       I016, I015, I017
-F (delivery): I018
-```
 
-Phases B and C can proceed in parallel once Phase A lands. The AI layer (C) must only be
-wired after deterministic scoring and graceful fallback are complete (PRD §25).
+Phases B and C may proceed in parallel after Phase A. I019 may begin immediately. The optional
+AI layer never gates deterministic scoring, results, export, or start over.
+
+## Issue-writing standard
+
+If implementation exposes a genuine ambiguity, stop and resolve it in
+`docs/DOMAIN-DECISIONS.md`; do not silently redefine the issue. If an acceptance criterion is
+impossible under its dependencies, correct the DAG before implementation rather than importing
+undeclared later work.

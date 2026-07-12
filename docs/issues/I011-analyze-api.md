@@ -1,50 +1,53 @@
-# I011 — `POST /api/v1/assessments/analyze` + strict output schema
+# I011 — Consent-gated, evidence-grounded analysis API
 
 - **Status:** ⬜ not started
-- **Phase:** C (AI layer)
+- **Phase:** C (optional AI layer)
 - **Depends on:** I002, I010, I012
 - **Complexity:** 4
 
 ## Context
 
-Generates the AI-assisted analysis only on the server, only with consent, and computes the
-Narrative Self-Awareness score in application code — the model never decides it
-(PRD §14.3, §15, DOMAIN §10).
+Optional narrative analysis runs only on the server and never changes deterministic results.
+Safety screening precedes every scoreability shortcut, and completed output must be structurally
+and evidentially valid rather than merely plausible (PRD §14.3, §15; DOMAIN §10, §13).
 
 ## Scope
 
 **In:**
-- Route `src/app/api/v1/assessments/analyze/route.ts` implementing the PRD §14.3 server
-  behavior: revalidate structured answers, recompute deterministic results, validate
-  narrative word limits server-side, run safety screening (I012), build a **minimized**
-  provider payload (PRD §15.3), request schema-constrained output, validate it, compute the
-  narrative score via `calculateNarrativeScore`, return the result, and discard raw narrative
-  from memory after the response.
-- Versioned developer/system prompt (`RMP-AI-1.0`, PRD §15.5) treating narrative text as
-  untrusted data (prompt-injection handling, PRD §15.4).
-- Strict output schema (PRD §15.6): 3–5 observations each with evidence, rubric criteria
-  0–2, penalty 0–2, 2–3 behavioral experiments, excerpt ≤ 24 words, review period 7–45 days,
-  no markdown/HTML, additionalProperties disabled.
-- `AnalyzeResponse` union: `completed | not_scored | safety_interruption | unavailable`
-  (with the PRD §14.3 reason unions). Reject missing AI consent.
 
-**Out:** provider transport (I010), safety classification logic (I012), UI rendering of the
-AI section (extends I008).
+- Shared strict Zod request/response contracts and `POST /api/v1/assessments/analyze`.
+- Require explicit `aiConsent`, valid JSON/media type, a 32 KiB bounded UTF-8 body, canonical
+  versions/answers, and server-side narrative field caps.
+- Recompute deterministic results, then run I012 safety classification on all submitted narrative
+  text—including brief or below-threshold content—before deciding `not_scored`.
+- Build the versioned `RMP-AI-1.0` prompt from minimized labels/results. Delimit narrative as
+  untrusted data and remove delimiter escapes without altering ordinary content.
+- Strict completed-output schema: 3-5 observations, 2-3 experiments, rubric/penalty integers 0-2,
+  excerpt at most 24 words, review period 7-45 days, no unknown keys, markdown, or HTML.
+- Evidence is a discriminated union: a canonical answered `questionId`, or a normalized excerpt
+  that occurs in submitted narrative and meets the word cap. Validate these relationships in
+  application code before returning completed output.
+- Compute narrative score only with `calculateNarrativeScore`; ignore any provider aggregate.
+- Return `completed | not_scored | safety_interruption | unavailable`. Safety fallback, provider
+  refusal/error/timeout/rate limit, invalid schema, or invalid evidence never blocks I008 results.
+
+**Out:** provider transport, safety policy/resources, deterministic result rendering, persistence.
 
 ## Acceptance criteria
 
-- [ ] AI call happens only on the server and only after explicit AI opt-in.
-- [ ] Model output validated against the strict schema; extra properties / invalid rubric
-      values rejected; raw prose never reaches the UI.
-- [ ] Narrative score computed in app code; a model-supplied aggregate is ignored.
-- [ ] Every observation contains evidence (question ID or short excerpt).
-- [ ] Provider error/timeout/invalid-output/rate-limited → `unavailable`; deterministic
-      results remain usable.
-- [ ] Prompt-injection text in narrative is treated as data.
-- [ ] `not_scored` when narrative thresholds unmet (DOMAIN §10.4); `limited_evidence` label
-      when one exercise meets threshold.
-- [ ] Raw narrative not persisted or logged.
+- [ ] No provider call occurs without consent or after an interrupt/fallback safety decision.
+- [ ] A brief immediate-risk narrative reaches safety classification and cannot return
+      `not_scored` before screening.
+- [ ] Unknown output keys, markdown/HTML, invalid evidence IDs, non-source excerpts, oversized
+      excerpts, invalid rubric values, and provider aggregates are rejected by direct tests.
+- [ ] Prompt-injection fixtures remain delimited data and cannot alter system instructions.
+- [ ] One threshold-meeting exercise yields `limited_evidence`; neither yields `not_scored` only
+      after safety allows it.
+- [ ] Raw narrative, full prompts, and raw model output are absent from responses, logs, and
+      persistence; deterministic results remain usable for every failure state.
+- [ ] HTTP tests cover content type, malformed/oversized bodies, consent, and every response union;
+      processing tests cover prompt, grounding, score ownership, and failure mapping.
 
 ## References
 
-PRD §14.3, §15.3–§15.8, §10.3, §20; DOMAIN §10, §13.
+PRD §10.3, §14.3-§14.4, §15.3-§15.8, §16, §20; DOMAIN §10, §13, §15.

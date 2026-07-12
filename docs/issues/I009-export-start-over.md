@@ -1,33 +1,46 @@
-# I009 — Export (HTML/JSON) + start over
+# I009 — Local result export and synchronous start over
 
 - **Status:** ⬜ not started
 - **Phase:** B (client flow)
 - **Depends on:** I008
-- **Complexity:** 2
+- **Complexity:** 3
 
 ## Context
 
-Users can keep a local copy of results and fully reset without leaving server-side traces
-(PRD §7.9, §7.10).
+Users can retain a transparent local copy and erase the active browser session. Export must
+represent every result layer currently displayed without creating a new data-egress path
+(PRD §7.9, §7.10, §11, §17).
 
 ## Scope
 
 **In:**
-- Export: printable HTML result view and JSON download; optional PDF only if generated
-  locally without sending data to a third party. Exports include version identifiers
-  (questionnaire / scoring / prompt) and the disclaimer; decorative orbs absent from print.
-- Start over: confirmation dialog → clear session-storage answers and result data →
-  invalidate any ephemeral server analysis token when applicable → return to landing.
 
-**Out:** server-side export storage (none — client only).
+- Downloadable JSON and self-contained printable HTML generated entirely in the browser.
+- Export deterministic results and, when present, schema-validated AI analysis; never export raw
+  narrative drafts unless a separate explicit raw-draft action requests it.
+- Include questionnaire, scoring, and prompt version identifiers, generation timestamp,
+  non-clinical disclaimer, confidence reasons, and whether optional layers were unavailable.
+- Escape every user/model-derived string before HTML insertion; print CSS removes decorative
+  backgrounds and preserves text equivalents.
+- Expose an `onExportGenerated(format)` integration hook for I013 without sending export content.
+- Start over confirmation synchronously removes the session-storage key, clears in-memory results
+  and drafts, invalidates an ephemeral server token when one exists, and returns to landing.
+
+**Out:** server-side export storage, third-party PDF services, persistent export history.
 
 ## Acceptance criteria
 
-- [ ] HTML and JSON exports include version identifiers and the disclaimer.
-- [ ] Exports escape user/model text; no third-party data egress for PDF.
-- [ ] Start over shows confirmation and clears draft + result data.
-- [ ] Print output excludes decorative background.
+- [ ] JSON and HTML include all three version identifiers and the required disclaimer whether AI
+      completed, was disabled, or was unavailable.
+- [ ] Completed AI observations/experiments are exported; raw rubric values and raw narrative are
+      not. All model strings are escaped in HTML.
+- [ ] Export works locally with the network unavailable; no third-party request occurs.
+- [ ] Print output contains no decorative background and retains accessible text equivalents.
+- [ ] Start over requires confirmation and removes persisted assessment data before navigation;
+      a same-tick storage assertion proves no debounce window remains.
+- [ ] Tests cover hostile HTML/model strings, every optional-result state, hook metadata, cancel,
+      confirmed deletion, and token-invalidation failure with local deletion still succeeding.
 
 ## References
 
-PRD §7.9, §7.10, §17 (versions visible in exports), §11 (escaping).
+PRD §7.9, §7.10, §10.2, §11, §17, §20.

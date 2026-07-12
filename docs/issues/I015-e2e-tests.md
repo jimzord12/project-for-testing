@@ -1,4 +1,4 @@
-# I015 — E2E test journeys (Playwright)
+# I015 — Full browser journeys with real application boundaries
 
 - **Status:** ⬜ not started
 - **Phase:** E (QA)
@@ -7,34 +7,50 @@
 
 ## Context
 
-End-to-end coverage of the primary user journeys, including AI failure and safety paths
-(PRD §21.3). AI calls are mocked.
+Browser tests must exercise the user flow they name. Pre-populating review state can support a
+narrow component scenario, but it cannot stand in for landing-to-results, keyboard-only, safety,
+or prompt-boundary journeys (PRD §6, §21.3).
 
 ## Scope
 
-**In:** Playwright setup + the 13 required journeys:
-1. All structured questions, skip narratives, deterministic result.
-2. Full assessment with AI enabled, both result layers.
-3. AI provider timeout, deterministic result remains usable.
-4. Refresh mid-assessment and resume from session storage.
-5. Keyboard-only completion.
-6. Narrow mobile viewport.
-7. Several items not applicable → reduced confidence.
-8. Insufficient data in one dimension → correct state (and null index per DD-1).
-9. Enable optional age metaphor → qualified copy.
-10. Start over → local data deletion.
-11. Inject HTML/script into narrative → escaped display.
-12. Prompt-injection text → treated as data.
-13. Mocked safety interruption → normal analysis suppressed.
+**In:**
 
-**Out:** accessibility-specific assertions (I016), AI quality evaluation (I017).
+- Playwright with a deterministic test provider enabled only by an explicit test environment
+  guard. AI journeys pass through the real analyze route, safety service, prompt builder, schemas,
+  and provider wrapper; no browser route interception replaces the endpoint under test.
+- Reusable UI-driving helpers may select canonical answers efficiently, but primary journeys start
+  at landing and interact with consent, all structured steps, narrative steps, review, and submit.
+- Fail on uncaught page exceptions, hydration errors, and unexpected console error/warning output.
+- Required journeys:
+  1. Full structured flow, skipped narratives, deterministic result and export.
+  2. Full AI-enabled flow with both result layers.
+  3. Provider timeout with deterministic result/export still usable.
+  4. Mid-assessment refresh and session restoration.
+  5. Entire assessment completed using keyboard input only.
+  6. Entire primary flow at a 320px mobile viewport.
+  7. Several `Not applicable` answers and reduced confidence.
+  8. Insufficient dimension and DD-1 null index.
+  9. Opt-in age metaphor with qualifying copy.
+  10. Start over with synchronous storage deletion.
+  11. Narrative HTML/script rendered literally through the real analyze boundary.
+  12. Prompt injection remains delimited data through the captured provider input.
+  13. Safety interruption suppresses analysis while deterministic results remain.
+
+**Out:** exhaustive WCAG audit, live external provider calls, AI quality scoring.
 
 ## Acceptance criteria
 
-- [ ] All 13 journeys implemented and passing against mocked AI.
-- [ ] AI timeout/failure never blocks deterministic results or export.
-- [ ] Safety interruption suppresses normal analysis while structured results remain.
+- [ ] All thirteen journeys pass from a clean browser context; journeys 1, 2, 5, 6, 11, 12,
+      and 13 may not seed a completed review state.
+- [ ] The keyboard journey uses no mouse/touchscreen API and completes every required screen.
+- [ ] Prompt-injection and safety journeys prove server orchestration through deterministic test-
+      provider traces, not only client serialization.
+- [ ] Timeout and safety outcomes preserve deterministic results and local export.
+- [ ] The suite fails on hydration mismatch, page error, unexpected console output, network request
+      to an unapproved host, or test-provider availability outside the explicit test environment.
+- [ ] Parallel and single-worker runs are deterministic; refresh tests do not use init scripts that
+      replay storage seeds on every document.
 
 ## References
 
-PRD §21.3, §6 (core UX rule).
+PRD §6, §21.3; DD-1; I011, I012.

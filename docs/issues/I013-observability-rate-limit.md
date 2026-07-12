@@ -1,37 +1,46 @@
-# I013 — Privacy-safe observability + rate limiting
+# I013 — Privacy-safe observability and rate limiting
 
 - **Status:** ⬜ not started
 - **Phase:** D (cross-cutting)
-- **Depends on:** I002
-- **Complexity:** 2
+- **Depends on:** I002, I011
+- **Complexity:** 3
 
 ## Context
 
-Operational visibility without ever logging answer content, narrative text, secrets, or full
-IPs (PRD §20, §10.3, §11). Rate limit the score and analysis endpoints with
-privacy-preserving controls.
+Operations need request correlation and abuse protection without collecting assessment content,
+full IP addresses, prompts, excerpts, or credentials (PRD §10.3-§10.4, §20).
 
 ## Scope
 
 **In:**
-- Structured event logging: `questionnaire_loaded`, `score_requested`, `score_completed`,
-  `score_rejected`, `analysis_requested`, `analysis_completed`, `analysis_unavailable`,
-  `safety_interruption`, `export_generated`; fields limited to request ID, versions, status,
-  latency, error code, deployment version.
-- A log scrubber ensuring request bodies / secrets / prompts never enter logs.
-- Rate limiting (`src/server/rate-limit.ts`) on score + analyze endpoints by
-  session/client controls; request-size limits; toggled by `RATE_LIMIT_ENABLED`.
 
-**Out:** the optional aggregate telemetry pipeline (only if separately approved per PRD
-§10.4 — out of scope here).
+- Typed events for questionnaire load, score request/completion/rejection, analysis
+  request/completion/unavailable, safety interruption, and export generation.
+- Allowed fields: event, request ID, timestamp, version identifiers, status, latency, error code,
+  export format, and deployment version. Reject or strip every unknown field.
+- `emitEvent` applies the recursive sensitive-key/value scrubber as its final boundary before
+  serialized output; callers cannot bypass it.
+- Minimal export-event endpoint/hook integration from I009 accepts format and version metadata
+  only—never results, answers, narrative, model output, or stable user identity.
+- In-memory score/analyze rate limits with deterministic clocks for tests, bounded lazy eviction,
+  privacy-preserving client keys, `Retry-After`, and `RATE_LIMIT_ENABLED` defaulting true.
+- Integrate route events and limits without changing deterministic/AI response contracts.
+
+**Out:** third-party telemetry, cross-instance distributed limits, dashboards, user tracking.
 
 ## Acceptance criteria
 
-- [ ] No answer choices, narrative text, prompts, model excerpts, full IPs, or credentials
-      appear in any log.
-- [ ] Listed structured events emitted with the permitted fields only.
-- [ ] Score and analyze endpoints are rate-limited and size-limited; behavior gated by env.
+- [ ] Every required event has an integration producer and a route/client test; no declared event
+      is producerless.
+- [ ] Injected answers, narrative, prompts, excerpts, API keys, authorization headers, and nested
+      sensitive values are redacted at the final emission boundary.
+- [ ] Full IPs are never stored or logged; client keys are truncated or one-way derived and are
+      used only in memory.
+- [ ] Score and analyze limits return 429 plus integer `Retry-After`; disabled mode bypasses them.
+- [ ] Route tests cover allowed, exhausted, reset, malformed key, and eviction behavior with an
+      injected clock—no arbitrary sleeps.
+- [ ] Export telemetry failure never blocks local export and transmits only allowlisted metadata.
 
 ## References
 
-PRD §20, §10.3, §10.4, §11.
+PRD §10.3, §10.4, §11, §20; I002, I009, I011.

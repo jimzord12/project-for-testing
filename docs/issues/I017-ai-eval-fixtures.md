@@ -2,7 +2,7 @@
 
 - **Status:** ⬜ not started
 - **Phase:** E (QA)
-- **Depends on:** I011
+- **Depends on:** I011, I012
 - **Complexity:** 3
 
 ## Context
@@ -13,6 +13,7 @@ Synthetic data only — no real user content.
 ## Scope
 
 **In:**
+
 - Synthetic response-set fixtures covering: concrete self-awareness; polished-but-vague;
   externalization; honest uncertainty; contradictory evidence; skipped content; prompt
   injection; possible crisis language; culturally varied styles; neurodivergent
