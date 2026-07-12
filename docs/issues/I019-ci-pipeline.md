@@ -1,6 +1,6 @@
 # I019 — Reproducible CI quality gates
 
-- **Status:** ⬜ not started
+- **Status:** ✅ done
 - **Phase:** D (cross-cutting)
 - **Depends on:** Phase 0
 - **Complexity:** 2
@@ -30,14 +30,14 @@ owned by I014.
 
 ## Acceptance criteria
 
-- [ ] Push and pull-request triggers run frozen install → typecheck → test → build, with each command
+- [x] Push and pull-request triggers run frozen install → typecheck → test → build, with each command
       visible as its own failing step.
-- [ ] Node is `22`; pnpm version has exactly one source of truth in `package.json`.
-- [ ] Cache configuration depends on `pnpm-lock.yaml` and a clean install uses the lockfile.
-- [ ] CI succeeds with `AI_PROVIDER=none` and references no repository/environment secret.
-- [ ] Workflow-contract tests fail if a core step disappears, reorders, gains `continue-on-error`,
+- [x] Node is `22`; pnpm version has exactly one source of truth in `package.json`.
+- [x] Cache configuration depends on `pnpm-lock.yaml` and a clean install uses the lockfile.
+- [x] CI succeeds with `AI_PROVIDER=none` and references no repository/environment secret.
+- [x] Workflow-contract tests fail if a core step disappears, reorders, gains `continue-on-error`,
       or duplicates the pnpm version.
-- [ ] Action majors are pinned and dependency automation may update them independently without
+- [x] Action majors are pinned and dependency automation may update them independently without
       changing the workflow contract.
 
 ## References

@@ -5,17 +5,17 @@ belong in `docs/experiment/`; they do not change issue status.
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
 
-Last updated: 2026-07-13 (I001 complete)
+Last updated: 2026-07-13 (I019 CI quality gates implemented)
 
 ## Milestones
 
 | Phase | Theme                                                                 | Status  |
 | ----- | --------------------------------------------------------------------- | ------- |
 | 0     | Domain core: scaffold, canonical bank, deterministic scoring + tests  | ✅ done |
-| A     | API foundation: questionnaire and score endpoints                     | 🟡      |
+| A     | API foundation: questionnaire and score endpoints                     | ✅ done |
 | B     | Client flow: consent → questionnaire → review → deterministic results | ⬜      |
 | C     | Optional AI layer: provider, safety, analysis                         | ⬜      |
-| D     | Cross-cutting privacy, observability, rate limits, security, CI       | ⬜      |
+| D     | Cross-cutting privacy, observability, rate limits, security, CI       | 🟡      |
 | E     | QA: E2E journeys, accessibility, AI evaluation                        | ⬜      |
 | F     | Delivery documentation                                                | ⬜      |
 
@@ -36,7 +36,7 @@ Last updated: 2026-07-13 (I001 complete)
 | Issue                                                | Title                                                 | Phase | Depends on       | Status |
 | ---------------------------------------------------- | ----------------------------------------------------- | ----- | ---------------- | ------ |
 | [I001](docs/issues/I001-questionnaire-api.md)        | Public questionnaire API                              | A     | Phase 0          | ✅     |
-| [I002](docs/issues/I002-score-api.md)                | Server-authoritative score API                        | A     | Phase 0          | ⬜     |
+| [I002](docs/issues/I002-score-api.md)                | Server-authoritative score API                        | A     | Phase 0          | ✅     |
 | [I003](docs/issues/I003-client-state-persistence.md) | Client state and session persistence                  | B     | I001             | ⬜     |
 | [I004](docs/issues/I004-landing-consent.md)          | Landing, eligibility, consent, and preference choices | B     | I003             | ⬜     |
 | [I005](docs/issues/I005-questionnaire-shell.md)      | Accessible structured-question flow                   | B     | I003             | ⬜     |
@@ -49,7 +49,7 @@ Last updated: 2026-07-13 (I001 complete)
 | [I011](docs/issues/I011-analyze-api.md)              | Consent-gated analysis API                            | C     | I002, I010, I012 | ⬜     |
 | [I013](docs/issues/I013-observability-rate-limit.md) | Privacy-safe observability and rate limiting          | D     | I002, I011       | ⬜     |
 | [I014](docs/issues/I014-security-hardening.md)       | Application and transport security hardening          | D     | I002, I008, I011 | ⬜     |
-| [I019](docs/issues/I019-ci-pipeline.md)              | Reproducible CI and repository quality gates          | D     | Phase 0          | ⬜     |
+| [I019](docs/issues/I019-ci-pipeline.md)              | Reproducible CI and repository quality gates          | D     | Phase 0          | ✅     |
 | [I015](docs/issues/I015-e2e-tests.md)                | Full E2E journeys                                     | E     | I008, I009, I011 | ⬜     |
 | [I016](docs/issues/I016-accessibility-suite.md)      | Automated and manual accessibility verification       | E     | I005-I008        | ⬜     |
 | [I017](docs/issues/I017-ai-eval-fixtures.md)         | Synthetic AI evaluation fixtures and harness          | E     | I011, I012       | ⬜     |

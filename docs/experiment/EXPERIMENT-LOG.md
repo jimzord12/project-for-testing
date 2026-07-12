@@ -59,7 +59,16 @@ Model limitation | Environment problem | Inconclusive
 | Date       | Record                                      | Issue | Tool  | Classification |
 | ---------- | ------------------------------------------- | ----- | ----- | -------------- |
 | 2026-07-12 | Phase 1 experimental baseline setup (setup) | —     | Codex | Not evaluated  |
+| 2026-07-13 | [Hermes Kanban workflow skill test](records/2026-07-13-hermes-kanban-skill-test.md) | Hermes workflow | Codex/Hermes | Tool defect |
 | 2026-07-13 | [I001 public questionnaire API via Hermes Kanban](records/2026-07-13-I001-hermes-public-questionnaire-api.md) | I001 | Hermes/Codex | Tool defect |
+| 2026-07-13 | [I002 server-authoritative score API via Hermes Kanban](records/2026-07-13-I002-hermes-score-api.md) | I002 | Hermes/Codex | Tool defect |
+| 2026-07-13 | [I002 reviewer Cron pnpm PATH observation](records/2026-07-13-I002-reviewer-cron-pnpm-path.md) | I002 review | Hermes/Codex | Environment problem |
+| 2026-07-13 | [I002 direct score processing test expansion](records/2026-07-13-I002-direct-score-processing-tests.md) | I002 child | Hermes/Codex | Tool defect |
+| 2026-07-13 | [I002 decomposed score route child verification](records/2026-07-13-I002-decomposed-score-route-child.md) | I002 child | Hermes/Codex | Tool defect |
+| 2026-07-13 | [I002 HTTP route error test expansion](records/2026-07-13-I002-http-route-error-tests.md) | I002 child | Hermes/Codex | Tool defect |
+| 2026-07-13 | [I002 Kanban rollback and task recreation](records/2026-07-13-I002-kanban-rollback.md) | I002 rollback | Hermes/Codex | Tool defect |
+| 2026-07-13 | [I002 clean rerun score API](records/2026-07-13-I002-rerun-score-api.md) | I002 | Hermes/Codex | Tool defect |
+| 2026-07-13 | [I019 reproducible CI quality gates](records/2026-07-13-I019-ci-quality-gates.md) | I019 | Hermes/Codex | Environment problem |
 
 The baseline setup restored source commit `7eb39bd`, added the local DOMAIN/PRD, installed the
 agent workflow, and prepared I001-I019. It is setup provenance, not evidence about a custom tool.
