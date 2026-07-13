@@ -2,15 +2,15 @@
 
 Read this first, then `PROGRESS.md`, then the selected file in `docs/issues/`.
 
-_Last updated: 2026-07-13 (I005 implementation handoff)_
+_Last updated: 2026-07-13 (I006 implementation handoff)_
 
 ## Current state
 
-Phase 0, I001, I002, I003, I004, and I019 are complete and verified by review. I005 has
-been implemented with local verification passing (`pnpm test`, `pnpm typecheck`,
-`pnpm build`, and the score-leakage source searches described below) and is ready for
-independent reviewer-Cron validation. Downstream narrative/review/results product issues are
-still open.
+Phase 0, I001, I002, I003, I004, I005, and I019 are complete and verified by review. I006
+has been implemented with local verification passing (`pnpm test`, `pnpm typecheck`,
+`pnpm build`, and the required `countWords|Skip this exercise` source search described
+below) and is ready for independent reviewer-Cron validation. Downstream review/results
+product issues are still open.
 
 The code/scaffold baseline is source commit `7eb39bd`. The current Hermes skill-test branch
 started from `d9386bd`. Authoritative product specifications are local at `docs/DOMAIN.md`
@@ -28,8 +28,8 @@ Hermes workflow state:
 - Workflow id: `rmp-product-backlog-hermes-test-v2`
 - START task id: `t_bd4b6145`
 - Current state: START is complete; I001 `t_6ee254df`, I002 `t_63b0cdfc`, I003
-  `t_3d63fb10`, I004 `t_2841b822`, and I019 `t_e8990795` passed review; I005
-  `t_4b7e78fa` has been implemented and should now be reviewed. Old I002 root
+  `t_3d63fb10`, I004 `t_2841b822`, I005 `t_4b7e78fa`, and I019 `t_e8990795`
+  passed review; I006 `t_411b4971` has been implemented and should now be reviewed. Old I002 root
   `t_21792a89` and its decomposed children `t_5bee910c`, `t_544bc896`, `t_f1d032e5`,
   `t_1dffbdd9`, and `t_38397722` were permanently deleted after archiving. Fresh I002 task
   `t_63b0cdfc` was recreated from the original I002 body, linked as
@@ -71,9 +71,30 @@ The new config defaults are `kanban.block_loop_decompose_after: 4` and
 
 ## Next work
 
-Review I005 task `t_4b7e78fa`. If it passes, complete it and allow the board to continue to
-I006 downstream narrative UI work. If it fails, unblock `t_4b7e78fa` with precise reviewer
+Review I006 task `t_411b4971`. If it passes, complete it and allow the board to continue to
+I007 downstream review-screen work. If it fails, unblock `t_411b4971` with precise reviewer
 findings rather than decomposing it.
+
+## Latest I006 implementation notes
+
+- Replaced the I005 narrative placeholders in `src/app/structured-question-flow.tsx` with
+  canonical N01/N02 optional exercise screens at visual steps 9 and 16: intro copy,
+  sub-question textareas, live word counts, 80% warning messages, concise privacy notice,
+  native Back/Continue navigation, and explicit `Skip this exercise` action.
+- Added `enforceNarrativeFieldCap` and `shouldShowNarrativeWordWarning` pure helpers that use
+  the existing `countWords` helper; over-cap paste/input preserves the previous valid value.
+- Updated `src/client/assessment-state.tsx` so explicit skip clears stored fields while field
+  edits and Continue record `skipped: false` and preserve intentional partial content.
+- Extended `src/app/structured-question-flow.test.ts` and `src/client/assessment-state.test.ts`
+  for empty/partial skip, editing after skip, refresh-restored drafts, counter boundaries,
+  over-cap paste/input, privacy copy, focus seam markers, and native keyboard-operation markers.
+- Added narrative textarea/focus/warning styles in `src/app/globals.css`.
+- Experiment record: `docs/experiment/records/2026-07-13-I006-narrative-ui.md`.
+- Fresh verification passed: focused red run failed for the missing I006 behavior, focused green
+  `pnpm vitest run src/client/assessment-state.test.ts src/app/structured-question-flow.test.ts`
+  passed (2 files / 23 tests), full `pnpm test` passed (12 files / 102 tests), `pnpm typecheck`
+  passed, `pnpm build` passed, and required Git Bash search `grep -RInE "countWords|Skip this exercise" src || true`
+  returned the expected I006 UI/test and domain helper matches.
 
 ## Latest I005 implementation notes
 

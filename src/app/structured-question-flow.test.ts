@@ -6,13 +6,16 @@ import {
   DIMENSION_LABELS,
   StructuredQuestionScreen,
   buildAssessmentSteps,
+  enforceNarrativeFieldCap,
   getAdjacentStepIndex,
   handleRadioKeyDown,
   makeQuestionHeadingFocusId,
+  shouldShowNarrativeWordWarning,
 } from "./structured-question-flow";
 import { createInitialAssessmentState, serializeAssessmentState } from "@/client/assessment-state";
 import { getPublicQuestionnaire } from "@/domain/questionnaire";
 import { SCORING_VERSION } from "@/domain/versions";
+import { countWords } from "@/domain/narrative-rubric";
 import { publicQuestionnaireResponseSchema, type PublicQuestionnaireResponse } from "./api/v1/questionnaire/route";
 
 function publicQuestionnaireFixture(): PublicQuestionnaireResponse {
@@ -40,6 +43,9 @@ function renderQuestionScreen(state = createInitialAssessmentState()) {
       questionnaire: publicQuestionnaireFixture(),
       state,
       onAnswer: () => undefined,
+      onNarrativeFieldChange: () => undefined,
+      onNarrativeContinue: () => undefined,
+      onNarrativeSkip: () => undefined,
       onNavigate: () => undefined,
       onExitAndDelete: () => undefined,
     }),
@@ -128,14 +134,78 @@ describe("I005 structured question screen", () => {
     expect(answered).not.toContain("primary-action\" disabled=\"\"");
   });
 
-  it("shows narrative insertion placeholders without narrative fields and lets the user continue", () => {
+  it("renders canonical narrative exercise fields, privacy copy, and skip action", () => {
     const html = renderQuestionScreen({ ...createInitialAssessmentState(), phase: "assessment", currentStepIndex: 8 });
 
     expect(html).toContain("Step 9 of 26");
-    expect(html).toContain("Narrative exercise placeholder");
-    expect(html).toContain("Narrative fields arrive in the next implementation slice");
+    expect(html).toContain("The Friction Story");
+    expect(html).toContain("This exercise is optional.");
+    expect(html).toContain("These answers may contain personal information.");
+    expect(html).toContain("You can skip them and still receive the structured profile.");
+    expect(html).toContain("What happened, and what did you do?");
+    expect(html).toContain("What were you telling yourself at the time?");
+    expect(html).toContain("What do you understand differently now?");
+    expect(html).toContain("0 of 90 words");
+    expect(html).toContain("Skip this exercise");
     expect(html).toContain("Continue to step 10");
-    expect(html).not.toContain("<textarea");
+    expect(html).toContain("<textarea");
+  });
+
+  it("restores saved narrative drafts with live word counts and a cleared skipped flag", () => {
+    const state = {
+      ...createInitialAssessmentState(),
+      phase: "assessment" as const,
+      currentStepIndex: 15,
+      narratives: {
+        N02: {
+          skipped: false,
+          fields: { pattern: "I keep repeating a decision pattern I do not understand" },
+        },
+      },
+    };
+    const html = renderQuestionScreen(state);
+
+    expect(html).toContain("The Unsolved Pattern");
+    expect(html).toContain("I keep repeating a decision pattern I do not understand");
+    expect(html).toContain(`${countWords(state.narratives.N02.fields.pattern)} of 70 words`);
+    expect(serializeAssessmentState(state)).toContain('"skipped":false');
+  });
+
+  it("warns at the canonical 80 percent word-count threshold without color-only signaling", () => {
+    const warningText = Array.from({ length: 72 }, (_, index) => `word${index}`).join(" ");
+    const html = renderQuestionScreen({
+      ...createInitialAssessmentState(),
+      phase: "assessment",
+      currentStepIndex: 8,
+      narratives: { N01: { skipped: false, fields: { event: warningText } } },
+    });
+
+    expect(shouldShowNarrativeWordWarning(71, 90)).toBe(false);
+    expect(shouldShowNarrativeWordWarning(72, 90)).toBe(true);
+    expect(html).toContain("72 of 90 words");
+    expect(html).toContain("You are near the 90-word limit for this field.");
+    expect(html).toContain("role=\"status\"");
+  });
+
+  it("preserves the last valid narrative value when input or paste would exceed the cap", () => {
+    const previous = Array.from({ length: 90 }, (_, index) => `kept${index}`).join(" ");
+    const tooLong = `${previous} extra`;
+
+    expect(enforceNarrativeFieldCap(tooLong, previous, 90)).toBe(previous);
+    expect(enforceNarrativeFieldCap("short replacement", previous, 90)).toBe("short replacement");
+  });
+
+  it("keeps narrative navigation and keyboard controls native at insertion steps 9 and 16", () => {
+    const first = renderQuestionScreen({ ...createInitialAssessmentState(), phase: "assessment", currentStepIndex: 8 });
+    const second = renderQuestionScreen({ ...createInitialAssessmentState(), phase: "assessment", currentStepIndex: 15 });
+
+    expect(first).toContain("aria-label=\"Back to step 8\"");
+    expect(first).toContain("aria-label=\"Continue to step 10\"");
+    expect(second).toContain("aria-label=\"Back to step 15\"");
+    expect(second).toContain("aria-label=\"Continue to step 17\"");
+    expect(first).toContain("tabindex=\"-1\"");
+    expect(first).toContain("data-focus-seam=\"heading\"");
+    expect(first).toContain("data-keyboard-operation=\"native-textarea-buttons\"");
   });
 
   it("does not render numeric scores, correctness, or desirability hints and stores only option ids", () => {

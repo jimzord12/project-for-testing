@@ -257,7 +257,7 @@ export function assessmentReducer(state: AssessmentState, action: AssessmentActi
         ...state,
         narratives: {
           ...state.narratives,
-          [action.exerciseId]: { ...existing, skipped: action.skipped },
+          [action.exerciseId]: { fields: action.skipped ? {} : existing.fields, skipped: action.skipped },
         },
       };
     }

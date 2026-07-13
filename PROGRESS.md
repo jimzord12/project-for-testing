@@ -5,7 +5,7 @@ belong in `docs/experiment/`; they do not change issue status.
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
 
-Last updated: 2026-07-13 (I005 structured-question flow implemented)
+Last updated: 2026-07-13 (I006 optional narrative exercises implemented)
 
 ## Milestones
 
@@ -40,7 +40,7 @@ Last updated: 2026-07-13 (I005 structured-question flow implemented)
 | [I003](docs/issues/I003-client-state-persistence.md) | Client state and session persistence                  | B     | I001             | ✅     |
 | [I004](docs/issues/I004-landing-consent.md)          | Landing, eligibility, consent, and preference choices | B     | I003             | ✅     |
 | [I005](docs/issues/I005-questionnaire-shell.md)      | Accessible structured-question flow                   | B     | I003             | ✅     |
-| [I006](docs/issues/I006-narrative-ui.md)             | Optional narrative exercises                          | B     | I005             | ⬜     |
+| [I006](docs/issues/I006-narrative-ui.md)             | Optional narrative exercises                          | B     | I005             | ✅     |
 | [I007](docs/issues/I007-review-screen.md)            | Review and edit screen                                | B     | I005, I006       | ⬜     |
 | [I008](docs/issues/I008-deterministic-results.md)    | Deterministic results                                 | B     | I002, I003       | ⬜     |
 | [I009](docs/issues/I009-export-start-over.md)        | Export and start over                                 | B     | I008             | ⬜     |

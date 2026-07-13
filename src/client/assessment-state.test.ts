@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ASSESSMENT_SESSION_STORAGE_KEY,
   QUESTIONNAIRE_SESSION_STORAGE_KEY,
+  assessmentReducer,
   checkScoringReadiness,
   clearAssessmentSession,
   createDebouncedSessionWriter,
@@ -11,6 +12,7 @@ import {
   exportRawLocalDraft,
   loadAssessmentSession,
   saveAssessmentSession,
+  serializeAssessmentState,
   type AssessmentState,
 } from "./assessment-state";
 import { QUESTIONNAIRE_VERSION, SCORING_VERSION } from "@/domain/versions";
@@ -144,6 +146,65 @@ describe("assessment session persistence", () => {
     expect(storage.writes).toHaveLength(1);
     expect(storage.writes[0]?.key).toBe(ASSESSMENT_SESSION_STORAGE_KEY);
     expect(JSON.parse(storage.writes[0]?.value ?? "{}")).toMatchObject({ currentStepIndex: 2 });
+  });
+});
+
+describe("narrative draft state", () => {
+  it("clears stored fields when an exercise is explicitly skipped", () => {
+    const withPartialNarrative = assessmentReducer(createInitialAssessmentState(), {
+      type: "set_narrative_field",
+      exerciseId: "N01",
+      fieldId: "event",
+      value: "I drafted a tense reply and waited before sending it.",
+    });
+
+    const skipped = assessmentReducer(withPartialNarrative, {
+      type: "set_narrative_skipped",
+      exerciseId: "N01",
+      skipped: true,
+    });
+
+    expect(skipped.narratives.N01).toEqual({ skipped: true, fields: {} });
+    expect(serializeAssessmentState(skipped)).not.toContain("tense reply");
+  });
+
+  it("marks a skipped exercise active again when the user edits a field", () => {
+    const skipped = {
+      ...createInitialAssessmentState(),
+      narratives: { N02: { skipped: true, fields: {} } },
+    };
+
+    const edited = assessmentReducer(skipped, {
+      type: "set_narrative_field",
+      exerciseId: "N02",
+      fieldId: "pattern",
+      value: "I postpone decisions when there are too many plausible options.",
+    });
+
+    expect(edited.narratives.N02).toEqual({
+      skipped: false,
+      fields: { pattern: "I postpone decisions when there are too many plausible options." },
+    });
+  });
+
+  it("preserves intentional partial content when Continue records an exercise as not skipped", () => {
+    const withPartialNarrative = assessmentReducer(createInitialAssessmentState(), {
+      type: "set_narrative_field",
+      exerciseId: "N01",
+      fieldId: "newUnderstanding",
+      value: "I was reacting to embarrassment more than the actual comment.",
+    });
+
+    const continued = assessmentReducer(withPartialNarrative, {
+      type: "set_narrative_skipped",
+      exerciseId: "N01",
+      skipped: false,
+    });
+
+    expect(continued.narratives.N01).toEqual({
+      skipped: false,
+      fields: { newUnderstanding: "I was reacting to embarrassment more than the actual comment." },
+    });
   });
 });
 
