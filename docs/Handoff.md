@@ -2,16 +2,16 @@
 
 Read this first, then `PROGRESS.md`, then the selected file in `docs/issues/`.
 
-_Last updated: 2026-07-13 (I009 export/start-over implementation handoff)_
+_Last updated: 2026-07-13 (I010 provider abstraction implementation handoff)_
 
 ## Current state
 
-Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, I009, and I019 are complete locally.
-I009 has been implemented with browser-only JSON/printable HTML export and synchronous
-start-over deletion from the deterministic results screen. Local verification is passing
-(`pnpm test`, `pnpm typecheck`, `pnpm build`, and the required
-`onExportGenerated|sessionStorage` source search described below) and it is ready for
-independent reviewer-Cron validation. Optional AI product issues are still open.
+Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, I009, I010, and I019 are complete locally.
+I010 has been implemented with a server-only Vercel AI SDK provider seam for disabled,
+Anthropic-compatible, and OpenAI-compatible structured generation. Local verification is
+passing (`pnpm test`, `pnpm typecheck`, `pnpm build`, and the required provider-import/
+secret source scan described below) and it is ready for independent reviewer-Cron
+validation. Safety and analyze API product issues are still open.
 
 The code/scaffold baseline is source commit `7eb39bd`. The current Hermes skill-test branch
 started from `d9386bd`. Authoritative product specifications are local at `docs/DOMAIN.md`
@@ -73,9 +73,36 @@ The new config defaults are `kanban.block_loop_decompose_after: 4` and
 
 ## Next work
 
-Review I009 task `t_5c130c65`. If it passes, complete it and allow the board to continue to
-I010 provider-abstraction work. If it fails, unblock `t_5c130c65` with precise reviewer
-findings rather than decomposing it.
+Review I010 task `t_4cf31ada`. If it passes, complete it and allow the board to continue to
+I012 safety-service work. If it fails, unblock `t_4cf31ada` with precise reviewer findings
+rather than decomposing it.
+
+## Latest I010 implementation notes
+
+- Added dependencies `ai`, `@ai-sdk/anthropic`, and `@ai-sdk/openai`.
+- Added `src/server/ai-provider.ts` as the only non-test source module importing provider SDKs
+  or reading `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`. It exposes `resolveAiProviderConfig` and
+  `generateStructuredObject` with typed result unions for `disabled`, `invalid_configuration`,
+  `timeout`, `rate_limited`, `refusal`, `invalid_output`, `provider_failure`, and success.
+- Provider selection is call-time/env driven: `AI_PROVIDER=none` disables AI; `anthropic` uses
+  `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, and optional `ANTHROPIC_BASE_URL`; `openai` uses
+  `OPENAI_API_KEY`, `OPENAI_MODEL`, and optional `OPENAI_BASE_URL`; timeout defaults to 20000ms
+  via `AI_ANALYSIS_TIMEOUT_MS`.
+- The wrapper calls `generateObject` with `zodSchema(input.schema)`, an abort signal, and
+  `maxRetries: 1`; invalid config/result objects intentionally avoid including raw secret values
+  or raw provider prose.
+- Added `src/server/ai-provider.test.ts` covering disabled mode, invalid config, constructor/call
+  arguments for both providers and custom base URLs, Zod schema adapter use, typed timeout/429/
+  refusal/invalid-output/provider-failure mapping, retry setting, and a non-test source import
+  boundary scan.
+- Updated `.env.example` to reflect the now-implemented server-only provider wrapper.
+- Experiment record: `docs/experiment/records/2026-07-13-I010-ai-provider-abstraction.md`.
+- Fresh verification passed: focused red `pnpm vitest run src/server/ai-provider.test.ts` failed
+  for missing `./ai-provider`; focused green passed (1 file / 9 tests); full `pnpm test` passed
+  (13 files / 130 tests), `pnpm typecheck` passed, `pnpm build` passed, required Git Bash scan
+  `grep -RInE "@ai-sdk|ANTHROPIC_API_KEY|OPENAI_API_KEY" src || true` returned only the mocked
+  provider test and `src/server/ai-provider.ts`, and the non-test scan with `--exclude='*.test.ts'`
+  returned only `src/server/ai-provider.ts`.
 
 ## Latest I009 implementation notes
 

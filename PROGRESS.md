@@ -5,7 +5,7 @@ belong in `docs/experiment/`; they do not change issue status.
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
 
-Last updated: 2026-07-13 (I009 export and start-over implemented)
+Last updated: 2026-07-13 (I010 provider abstraction implemented)
 
 ## Milestones
 
@@ -14,7 +14,7 @@ Last updated: 2026-07-13 (I009 export and start-over implemented)
 | 0     | Domain core: scaffold, canonical bank, deterministic scoring + tests  | ✅ done |
 | A     | API foundation: questionnaire and score endpoints                     | ✅ done |
 | B     | Client flow: consent → questionnaire → review → deterministic results | 🟡      |
-| C     | Optional AI layer: provider, safety, analysis                         | ⬜      |
+| C     | Optional AI layer: provider, safety, analysis                         | 🟡      |
 | D     | Cross-cutting privacy, observability, rate limits, security, CI       | 🟡      |
 | E     | QA: E2E journeys, accessibility, AI evaluation                        | ⬜      |
 | F     | Delivery documentation                                                | ⬜      |
@@ -44,7 +44,7 @@ Last updated: 2026-07-13 (I009 export and start-over implemented)
 | [I007](docs/issues/I007-review-screen.md)            | Review and edit screen                                | B     | I005, I006       | ✅     |
 | [I008](docs/issues/I008-deterministic-results.md)    | Deterministic results                                 | B     | I002, I003       | ✅     |
 | [I009](docs/issues/I009-export-start-over.md)        | Export and start over                                 | B     | I008             | ✅     |
-| [I010](docs/issues/I010-ai-provider-abstraction.md)  | Provider-agnostic structured AI generation            | C     | Phase 0          | ⬜     |
+| [I010](docs/issues/I010-ai-provider-abstraction.md)  | Provider-agnostic structured AI generation            | C     | Phase 0          | ✅     |
 | [I012](docs/issues/I012-safety-service.md)           | Layered safety classification and help resources      | C     | I010             | ⬜     |
 | [I011](docs/issues/I011-analyze-api.md)              | Consent-gated analysis API                            | C     | I002, I010, I012 | ⬜     |
 | [I013](docs/issues/I013-observability-rate-limit.md) | Privacy-safe observability and rate limiting          | D     | I002, I011       | ⬜     |
