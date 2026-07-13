@@ -71,6 +71,10 @@ a:focus-visible {
   max-width: 760px;
 }
 
+.results-shell {
+  max-width: 1040px;
+}
+
 .card {
   border: 1px solid var(--border);
   border-radius: 24px;
@@ -297,6 +301,65 @@ legend {
   color: var(--danger);
 }
 
+.results-hero-card {
+  background:
+    radial-gradient(circle at top right, rgba(96, 165, 250, 0.16), transparent 34%),
+    var(--surface);
+}
+
+.result-score {
+  font-size: clamp(3rem, 12vw, 6.5rem);
+  font-weight: 900;
+  letter-spacing: -0.06em;
+  line-height: 1;
+  margin: 16px 0;
+}
+
+.result-score-label {
+  color: var(--warning);
+  font-size: 1.4rem;
+  font-weight: 900;
+  margin: 0 0 8px;
+}
+
+.result-disclaimer {
+  border-left: 3px solid var(--warning);
+  color: var(--text-secondary);
+  padding-left: 12px;
+}
+
+.dimension-result-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dimension-result-card {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.dimension-score-text {
+  font-weight: 900;
+}
+
+.dimension-score-bar {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  height: 12px;
+  margin: 12px 0;
+  overflow: hidden;
+}
+
+.dimension-score-bar::before {
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  content: "";
+  display: block;
+  height: 100%;
+  width: var(--score-percent, 0%);
+}
+
 .primary-action,
 .secondary-action,
 .danger-action {
@@ -322,6 +385,12 @@ legend {
 
   .card {
     padding: 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  .dimension-result-grid {
+    grid-template-columns: 1fr;
   }
 }
 

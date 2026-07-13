@@ -75,6 +75,8 @@ Model limitation | Environment problem | Inconclusive
 | 2026-07-13 | [I006 optional narrative exercises](records/2026-07-13-I006-narrative-ui.md) | I006 | Hermes/Codex | Tool defect |
 | 2026-07-13 | [I007 review, edit, and submit screen](records/2026-07-13-I007-review-screen.md) | I007 | Hermes/Codex | Environment problem |
 | 2026-07-13 | [I007 review-card browser-test acceptance drift](records/2026-07-13-I007-review-card-browser-test-drift.md) | I007 | Hermes/Codex reviewer | Workflow problem |
+| 2026-07-13 | [I008 deterministic results screen](records/2026-07-13-I008-deterministic-results.md) | I008 | Hermes/Codex | Environment problem |
+| 2026-07-13 | [I008 review blocked by uncommitted dependency baseline](records/2026-07-13-I008-review-uncommitted-dependency.md) | I008 | Hermes/Codex reviewer | Workflow problem |
 
 The baseline setup restored source commit `7eb39bd`, added the local DOMAIN/PRD, installed the
 agent workflow, and prepared I001-I019. It is setup provenance, not evidence about a custom tool.

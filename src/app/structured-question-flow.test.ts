@@ -3,19 +3,24 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   DIMENSION_LABELS,
+  DeterministicResultsScreen,
   ReviewScreen,
   StructuredQuestionFlow,
   StructuredQuestionScreen,
   buildAssessmentSteps,
   buildDimensionReviewCounts,
+  buildScoreRequestFromState,
   enforceNarrativeFieldCap,
   getAdjacentStepIndex,
+  getDimensionBandLabel,
+  getGrowthAreaDimensions,
   handleRadioKeyDown,
   makeQuestionHeadingFocusId,
+  pickStrongestDimension,
   resolveReviewEditTarget,
   summarizeNarrativeReviewStatus,
   shouldShowNarrativeWordWarning,
@@ -27,8 +32,9 @@ import {
   serializeAssessmentState,
 } from "@/client/assessment-state";
 import { getPublicQuestionnaire } from "@/domain/questionnaire";
-import { SCORING_VERSION } from "@/domain/versions";
+import { QUESTIONNAIRE_VERSION, SCORING_VERSION } from "@/domain/versions";
 import { countWords } from "@/domain/narrative-rubric";
+import type { ScoreSuccessResponse } from "./api/v1/assessments/score/score-service";
 import { publicQuestionnaireResponseSchema, type PublicQuestionnaireResponse } from "./api/v1/questionnaire/route";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -79,6 +85,34 @@ function renderReviewScreen(state = createInitialAssessmentState()) {
   );
 }
 
+function reportableResultFixture(overrides: Partial<ScoreSuccessResponse["result"]> = {}): ScoreSuccessResponse["result"] {
+  return {
+    questionnaireVersion: QUESTIONNAIRE_VERSION,
+    scoringVersion: SCORING_VERSION,
+    structuredMaturityIndex: 68,
+    confidence: { score: 88, label: "high", reasons: [] },
+    dimensions: {
+      ER: { status: "reportable", score: 70, answered: 5, available: 5 },
+      IC: { status: "reportable", score: 55, answered: 4, available: 5 },
+      PT: { status: "reportable", score: 80, answered: 5, available: 5 },
+      IS: { status: "reportable", score: 69, answered: 4, available: 4 },
+      TD: { status: "reportable", score: 65, answered: 5, available: 5 },
+    },
+    profileBalance: { spread: 25, label: "some_unevenness" },
+    maturityAgeMetaphor: null,
+    ...overrides,
+  };
+}
+
+function renderResults(result: ScoreSuccessResponse["result"], aiAnalysisEnabled = false) {
+  return renderToStaticMarkup(
+    createElement(DeterministicResultsScreen, {
+      result,
+      aiAnalysisEnabled,
+    }),
+  );
+}
+
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
 
@@ -121,6 +155,7 @@ function cleanupMountedFlow() {
 
 afterEach(() => {
   cleanupMountedFlow();
+  vi.restoreAllMocks();
 });
 
 function renderFlowInBrowser(state = createInitialAssessmentState()) {
@@ -514,5 +549,139 @@ describe("I007 review screen", () => {
     expect(rerendered.container.querySelector("h1")?.textContent).toBe("Submitting assessment");
     cleanupMountedFlow();
     expect(rerendered.storage.getItem(ASSESSMENT_SESSION_STORAGE_KEY)).toContain('\"phase\":\"submitting\"');
+  });
+});
+
+
+describe("I008 deterministic results helpers", () => {
+  it("builds the score API request from local answer ids and age-metaphor preference only", () => {
+    const state = {
+      ...createInitialAssessmentState(),
+      structuredAnswers: { ER02: "NA", ER01: "C" },
+      preferences: { includeAgeMetaphor: true, autoAdvance: false, reducedMotionOverride: null },
+    };
+
+    expect(buildScoreRequestFromState(state)).toEqual({
+      questionnaireVersion: QUESTIONNAIRE_VERSION,
+      answers: [
+        { questionId: "ER01", optionId: "C" },
+        { questionId: "ER02", optionId: "NA" },
+      ],
+      preferences: { includeAgeMetaphor: true },
+    });
+  });
+
+  it("uses DD-6 dimension bands and neutral strongest/growth-area selections", () => {
+    const result = reportableResultFixture();
+
+    expect(getDimensionBandLabel(0)).toBe("Emerging");
+    expect(getDimensionBandLabel(25)).toBe("Developing");
+    expect(getDimensionBandLabel(50)).toBe("Established");
+    expect(getDimensionBandLabel(75)).toBe("Proficient");
+    expect(getDimensionBandLabel(90)).toBe("Integrated");
+    expect(pickStrongestDimension(result.dimensions)).toEqual({ dimension: "PT", label: "Perspective-Taking", score: 80 });
+    expect(getGrowthAreaDimensions(result.dimensions)).toEqual([
+      { dimension: "IC", label: "Impulse Control", score: 55 },
+      { dimension: "TD", label: "Temporal Depth", score: 65 },
+    ]);
+  });
+});
+
+describe("I008 deterministic results screen", () => {
+  it("renders the maturity index immediately with confidence, dimensions, balance, disclaimer, text equivalents, and AI unavailable slot", () => {
+    const html = renderResults(reportableResultFixture());
+
+    expect(html).toContain("Structured Maturity Index");
+    expect(html).toContain("68 / 100");
+    expect(html).toContain("Confidence: High (88 / 100)");
+    expect(html).toContain("No confidence deductions were applied.");
+    expect(html).toContain("Perspective-Taking is the strongest reportable dimension at 80 / 100.");
+    expect(html).toContain("Lower reportable dimensions to inspect: Impulse Control (55 / 100), Temporal Depth (65 / 100).");
+    expect(html).toContain("Profile balance: Some unevenness (spread 25).");
+    expect(html).toContain("Emotional Regulation");
+    expect(html).toContain("70 / 100 · Established");
+    expect(html).toContain("Text equivalent: Emotional Regulation scored 70 out of 100 and is in the Established band.");
+    expect(html).toContain("AI analysis unavailable");
+    expect(html).toContain("This is not a clinical assessment, diagnosis, or literal measure of psychological age.");
+    expect(html).toContain("data-reduced-motion=\"respect\"");
+    expect(html).toContain("data-min-layout-width=\"320\"");
+    expect(html).toContain("data-zoom-support=\"200\"");
+  });
+
+  it("renders null index and insufficient dimension states without fabricating numbers", () => {
+    const html = renderResults(reportableResultFixture({
+      structuredMaturityIndex: null,
+      dimensions: {
+        ER: { status: "insufficient_data", answered: 3, required: 4, available: 5 },
+        IC: { status: "reportable", score: 55, answered: 4, available: 5 },
+        PT: { status: "reportable", score: 80, answered: 5, available: 5 },
+        IS: { status: "reportable", score: 69, answered: 4, available: 4 },
+        TD: { status: "reportable", score: 65, answered: 5, available: 5 },
+      },
+      confidence: {
+        score: 60,
+        label: "low",
+        reasons: [{ code: "non_reportable_dimension", dimension: "ER", deducted: 15 }],
+      },
+      maturityAgeMetaphor: null,
+    }));
+
+    expect(html).toContain("Index unavailable");
+    expect(html).toContain("Answer more items in Emotional Regulation to show the aggregate index.");
+    expect(html).toContain("Emotional Regulation: Insufficient data");
+    expect(html).toContain("3 of 4 required scored answers available; 5 items total.");
+    expect(html).toContain("Confidence: Low (60 / 100)");
+    expect(html).toContain("Emotional Regulation did not have enough scored answers (-15).");
+    expect(html).not.toContain("null / 100");
+  });
+
+  it("gates the age metaphor behind the server result and includes the required qualifying copy", () => {
+    const withoutMetaphor = renderResults(reportableResultFixture({ maturityAgeMetaphor: null }));
+    const withMetaphor = renderResults(reportableResultFixture({ maturityAgeMetaphor: 54 }));
+
+    expect(withoutMetaphor).not.toContain("Maturity-age metaphor");
+    expect(withMetaphor).toContain("Maturity-age metaphor");
+    expect(withMetaphor).toContain("54");
+    expect(withMetaphor).toContain("This is a playful mapping of the index onto a 16–72 scale.");
+    expect(withMetaphor).toContain("older does not mean more valuable");
+  });
+});
+
+describe("I008 score submission integration", () => {
+  it("posts to the score API after review submission and renders deterministic results before AI", async () => {
+    const result = reportableResultFixture();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ assessmentId: "00000000-0000-4000-8000-000000000008", result }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    const { container } = renderFlowInBrowser({
+      ...createInitialAssessmentState(),
+      phase: "review",
+      structuredAnswers: { ER01: "C", IC01: "D" },
+      consent: { isAdult: true, nonClinicalAcknowledged: true, aiConsent: false },
+    });
+
+    await act(async () => {
+      getButtonByLabel(container, /^Submit assessment$/).click();
+    });
+    await act(async () => undefined);
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/assessments/score", expect.objectContaining({
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        questionnaireVersion: QUESTIONNAIRE_VERSION,
+        answers: [
+          { questionId: "ER01", optionId: "C" },
+          { questionId: "IC01", optionId: "D" },
+        ],
+        preferences: { includeAgeMetaphor: false },
+      }),
+    }));
+    expect(container.textContent).toContain("Structured Maturity Index");
+    expect(container.textContent).toContain("68 / 100");
+    expect(container.textContent).toContain("AI analysis unavailable");
   });
 });

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import type { KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 
 import { useAssessment, type AssessmentState } from "@/client/assessment-state";
 import { countWords } from "@/domain/narrative-rubric";
-import type { DimensionId } from "@/domain/result-types";
+import { DIMENSION_IDS, type ConfidenceReason, type DimensionId, type DimensionResult } from "@/domain/result-types";
+import type { ScoreRequest, ScoreSuccessResponse } from "./api/v1/assessments/score/score-service";
 import type { PublicQuestionnaireResponse } from "./api/v1/questionnaire/route";
 
 export const DIMENSION_LABELS: Record<DimensionId, string> = {
@@ -194,6 +195,80 @@ export function resolveReviewEditTarget(
     stepIndex,
     headingFocusId: makeQuestionHeadingFocusId(stepIndex),
   };
+}
+
+type ScoreResult = ScoreSuccessResponse["result"];
+
+type RankedDimension = {
+  dimension: DimensionId;
+  label: string;
+  score: number;
+};
+
+export function buildScoreRequestFromState(state: AssessmentState): ScoreRequest {
+  return {
+    questionnaireVersion: state.questionnaireVersion,
+    answers: Object.entries(state.structuredAnswers)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([questionId, optionId]) => ({ questionId, optionId })),
+    preferences: { includeAgeMetaphor: state.preferences.includeAgeMetaphor },
+  };
+}
+
+export function getDimensionBandLabel(score: number): string {
+  if (score <= 24) return "Emerging";
+  if (score <= 49) return "Developing";
+  if (score <= 74) return "Established";
+  if (score <= 89) return "Proficient";
+  return "Integrated";
+}
+
+function formatProfileBalanceLabel(label: NonNullable<ScoreResult["profileBalance"]>["label"]): string {
+  if (label === "relatively_balanced") return "Relatively balanced";
+  if (label === "some_unevenness") return "Some unevenness";
+  return "Strongly uneven profile";
+}
+
+function formatConfidenceLabel(label: ScoreResult["confidence"]["label"]): string {
+  if (label === "high") return "High";
+  if (label === "moderate") return "Moderate";
+  return "Low";
+}
+
+function rankedReportableDimensions(dimensions: Record<DimensionId, DimensionResult>): RankedDimension[] {
+  return DIMENSION_IDS.flatMap((dimension) => {
+    const result = dimensions[dimension];
+    if (result.status !== "reportable") return [];
+    return [{ dimension, label: DIMENSION_LABELS[dimension], score: result.score }];
+  }).sort((left, right) => left.score - right.score || left.label.localeCompare(right.label));
+}
+
+export function pickStrongestDimension(dimensions: Record<DimensionId, DimensionResult>): RankedDimension | null {
+  return [...rankedReportableDimensions(dimensions)].sort(
+    (left, right) => right.score - left.score || left.label.localeCompare(right.label),
+  )[0] ?? null;
+}
+
+export function getGrowthAreaDimensions(dimensions: Record<DimensionId, DimensionResult>): RankedDimension[] {
+  return rankedReportableDimensions(dimensions).slice(0, 2);
+}
+
+function getIndexUnavailableDimension(dimensions: Record<DimensionId, DimensionResult>): string | null {
+  const insufficient = DIMENSION_IDS.find((dimension) => dimensions[dimension].status === "insufficient_data");
+  return insufficient ? DIMENSION_LABELS[insufficient] : null;
+}
+
+function formatConfidenceReason(reason: ConfidenceReason): string {
+  if (reason.code === "extra_not_applicable") {
+    return `${reason.count} extra Not applicable response${reason.count === 1 ? "" : "s"} reduced confidence (-${reason.deducted}).`;
+  }
+  if (reason.code === "non_reportable_dimension") {
+    return `${DIMENSION_LABELS[reason.dimension]} did not have enough scored answers (-${reason.deducted}).`;
+  }
+  if (reason.code === "low_coverage") {
+    return `${reason.missingOrNa} unanswered or Not applicable structured items reduced confidence (-${reason.deducted}).`;
+  }
+  return `${reason.pair[0]} and ${reason.pair[1]} were far apart, which reduced confidence (-${reason.deducted}).`;
 }
 
 function formatNarrativeStatus(status: NarrativeReviewStatus): string {
@@ -537,13 +612,142 @@ export function ReviewScreen({ questionnaire, state, onBack, onEditStep, onSubmi
   );
 }
 
-function SubmittingScreen() {
+export function DeterministicResultsScreen({
+  result,
+  aiAnalysisEnabled,
+}: {
+  result: ScoreResult;
+  aiAnalysisEnabled: boolean;
+}) {
+  const strongest = pickStrongestDimension(result.dimensions);
+  const growthAreas = getGrowthAreaDimensions(result.dimensions);
+  const unavailableDimension = getIndexUnavailableDimension(result.dimensions);
+
+  return (
+    <main
+      className="flow-shell results-shell"
+      data-reduced-motion="respect"
+      data-min-layout-width="320"
+      data-zoom-support="200"
+    >
+      <section aria-labelledby="results-title" className="card results-hero-card">
+        <p className="eyebrow">Deterministic results</p>
+        <h1 id="results-title">Structured Maturity Index</h1>
+        {result.structuredMaturityIndex === null ? (
+          <div className="result-score-unavailable" role="status">
+            <p className="result-score-label">Index unavailable</p>
+            <p>
+              {unavailableDimension
+                ? `Answer more items in ${unavailableDimension} to show the aggregate index.`
+                : "Answer more structured items to show the aggregate index."}
+            </p>
+          </div>
+        ) : (
+          <p className="result-score" aria-label={`Structured Maturity Index ${result.structuredMaturityIndex} out of 100`}>
+            {result.structuredMaturityIndex} / 100
+          </p>
+        )}
+        <p className="subtle-note">
+          This number is available as text immediately; any visual emphasis must not delay access to it.
+        </p>
+        <p>
+          Confidence: {formatConfidenceLabel(result.confidence.label)} ({result.confidence.score} / 100)
+        </p>
+        {result.confidence.reasons.length === 0 ? (
+          <p>No confidence deductions were applied.</p>
+        ) : (
+          <ul>
+            {result.confidence.reasons.map((reason, index) => (
+              <li key={`${reason.code}-${index}`}>{formatConfidenceReason(reason)}</li>
+            ))}
+          </ul>
+        )}
+        <p className="result-disclaimer">
+          This is not a clinical assessment, diagnosis, or literal measure of psychological age.
+        </p>
+      </section>
+
+      <section aria-labelledby="dimension-results-title" className="card results-section-card">
+        <h2 id="dimension-results-title">Dimension profile</h2>
+        <div className="dimension-result-grid">
+          {DIMENSION_IDS.map((dimension) => {
+            const dimensionResult = result.dimensions[dimension];
+            const label = DIMENSION_LABELS[dimension];
+            if (dimensionResult.status === "insufficient_data") {
+              return (
+                <article key={dimension} className="dimension-result-card">
+                  <h3>{label}: Insufficient data</h3>
+                  <p>{dimensionResult.answered} of {dimensionResult.required} required scored answers available; {dimensionResult.available} items total.</p>
+                  <p className="sr-only">Text equivalent: {label} has insufficient data.</p>
+                </article>
+              );
+            }
+
+            const band = getDimensionBandLabel(dimensionResult.score);
+            return (
+              <article key={dimension} className="dimension-result-card">
+                <h3>{label}</h3>
+                <p className="dimension-score-text">{dimensionResult.score} / 100 · {band}</p>
+                <div
+                  className="dimension-score-bar"
+                  aria-hidden="true"
+                  style={{ "--score-percent": `${dimensionResult.score}%` } as CSSProperties}
+                />
+                <p>Text equivalent: {label} scored {dimensionResult.score} out of 100 and is in the {band} band.</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section aria-labelledby="profile-pattern-title" className="card results-section-card">
+        <h2 id="profile-pattern-title">Profile pattern</h2>
+        {result.profileBalance ? (
+          <p>Profile balance: {formatProfileBalanceLabel(result.profileBalance.label)} (spread {result.profileBalance.spread}).</p>
+        ) : (
+          <p>Profile balance is unavailable until at least one dimension is reportable.</p>
+        )}
+        {strongest ? (
+          <p>{strongest.label} is the strongest reportable dimension at {strongest.score} / 100.</p>
+        ) : (
+          <p>No strongest dimension is shown until at least one dimension is reportable.</p>
+        )}
+        {growthAreas.length > 0 ? (
+          <p>
+            Lower reportable dimensions to inspect: {growthAreas.map((area) => `${area.label} (${area.score} / 100)`).join(", ")}.
+          </p>
+        ) : (
+          <p>No lower reportable dimensions are shown until dimensions become reportable.</p>
+        )}
+      </section>
+
+      {result.maturityAgeMetaphor === null ? null : (
+        <section aria-labelledby="age-metaphor-title" className="card results-section-card">
+          <h2 id="age-metaphor-title">Maturity-age metaphor</h2>
+          <p>{result.maturityAgeMetaphor}</p>
+          <p>
+            This is a playful mapping of the index onto a 16–72 scale. It is not your literal or clinical psychological age, and older does not mean more valuable.
+          </p>
+        </section>
+      )}
+
+      <section aria-labelledby="ai-analysis-slot-title" className="card results-section-card">
+        <h2 id="ai-analysis-slot-title">AI analysis</h2>
+        <p>{aiAnalysisEnabled ? "AI analysis unavailable" : "AI analysis unavailable"}</p>
+        <div data-ai-analysis-slot="reserved-for-I011" />
+      </section>
+    </main>
+  );
+}
+
+function SubmittingScreen({ error }: { error: string | null }) {
   return (
     <main className="flow-shell questionnaire-shell">
       <section aria-labelledby="submitting-title" className="card review-card">
         <p className="eyebrow">Submit</p>
         <h1 id="submitting-title" className="question-heading" tabIndex={-1}>Submitting assessment</h1>
-        <p className="question-prompt">Preparing the deterministic submission. Results are implemented in the next issue.</p>
+        <p className="question-prompt">Requesting deterministic scoring. Results will appear here before any optional AI analysis.</p>
+        {error ? <p role="alert">{error}</p> : null}
       </section>
     </main>
   );
@@ -552,6 +756,36 @@ function SubmittingScreen() {
 export function StructuredQuestionFlow({ questionnaire }: { questionnaire: PublicQuestionnaireResponse }) {
   const { state, dispatch, discardLocalDraft } = useAssessment();
   const steps = useMemo(() => buildAssessmentSteps(questionnaire), [questionnaire]);
+  const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
+  const [scoreError, setScoreError] = useState<string | null>(null);
+  const submissionStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (state.phase !== "submitting" || submissionStartedRef.current) return;
+    submissionStartedRef.current = true;
+    setScoreError(null);
+
+    const submit = async () => {
+      try {
+        const response = await fetch("/api/v1/assessments/score", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(buildScoreRequestFromState(state)),
+        });
+        if (!response.ok) {
+          throw new Error(`Score API returned ${response.status}`);
+        }
+        const body = (await response.json()) as ScoreSuccessResponse;
+        setScoreResult(body.result);
+        dispatch({ type: "set_phase", phase: "results" });
+      } catch {
+        setScoreError("Deterministic scoring is unavailable. Please review your answers and try submitting again.");
+        submissionStartedRef.current = false;
+      }
+    };
+
+    void submit();
+  }, [dispatch, state]);
 
   if (state.phase === "review") {
     return (
@@ -563,13 +797,22 @@ export function StructuredQuestionFlow({ questionnaire }: { questionnaire: Publi
           dispatch({ type: "set_current_step_index", currentStepIndex: stepIndex });
           dispatch({ type: "set_phase", phase: "assessment" });
         }}
-        onSubmit={() => dispatch({ type: "set_phase", phase: "submitting" })}
+        onSubmit={() => {
+          submissionStartedRef.current = false;
+          setScoreResult(null);
+          setScoreError(null);
+          dispatch({ type: "set_phase", phase: "submitting" });
+        }}
       />
     );
   }
 
   if (state.phase === "submitting") {
-    return <SubmittingScreen />;
+    return <SubmittingScreen error={scoreError} />;
+  }
+
+  if (state.phase === "results" && scoreResult) {
+    return <DeterministicResultsScreen result={scoreResult} aiAnalysisEnabled={state.consent.aiConsent} />;
   }
 
   return (

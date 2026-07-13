@@ -2,16 +2,16 @@
 
 Read this first, then `PROGRESS.md`, then the selected file in `docs/issues/`.
 
-_Last updated: 2026-07-13 (I007 browser-test rework handoff)_
+_Last updated: 2026-07-13 (I008 deterministic results implementation handoff)_
 
 ## Current state
 
-Phase 0, I001, I002, I003, I004, I005, I006, and I019 are complete and verified by review.
-I007 has been implemented and reworked after reviewer rejection to add DOM/browser-level
-edit/focus coverage. Local verification is passing (`pnpm test`, `pnpm typecheck`,
-`pnpm build`, and the required `Submit assessment|Not applicable` source search described
-below) and it is ready for independent reviewer-Cron validation. Downstream deterministic
-results/export product issues are still open.
+Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, and I019 are complete locally.
+I008 has been implemented with deterministic result rendering and score-API submission from
+review. Local verification is passing (`pnpm test`, `pnpm typecheck`, `pnpm build`, and the
+required `maturity_age_metaphor|maturityAgeMetaphor|AI analysis unavailable` source search
+described below) and it is ready for independent reviewer-Cron validation. Export/start-over
+and optional AI product issues are still open.
 
 The code/scaffold baseline is source commit `7eb39bd`. The current Hermes skill-test branch
 started from `d9386bd`. Authoritative product specifications are local at `docs/DOMAIN.md`
@@ -29,8 +29,9 @@ Hermes workflow state:
 - Workflow id: `rmp-product-backlog-hermes-test-v2`
 - START task id: `t_bd4b6145`
 - Current state: START is complete; I001 `t_6ee254df`, I002 `t_63b0cdfc`, I003
-  `t_3d63fb10`, I004 `t_2841b822`, I005 `t_4b7e78fa`, I006 `t_411b4971`, and I019 `t_e8990795`
-  passed review; I007 `t_1f2110f1` has been implemented and should now be reviewed. Old I002 root
+  `t_3d63fb10`, I004 `t_2841b822`, I005 `t_4b7e78fa`, I006 `t_411b4971`, I007
+  `t_1f2110f1`, I008 `t_0b4cc633`, and I019 `t_e8990795` have local implementations/review
+  status as noted below. Old I002 root
   `t_21792a89` and its decomposed children `t_5bee910c`, `t_544bc896`, `t_f1d032e5`,
   `t_1dffbdd9`, and `t_38397722` were permanently deleted after archiving. Fresh I002 task
   `t_63b0cdfc` was recreated from the original I002 body, linked as
@@ -72,9 +73,38 @@ The new config defaults are `kanban.block_loop_decompose_after: 4` and
 
 ## Next work
 
-Review I007 task `t_1f2110f1`. If it passes, complete it and allow the board to continue to
-I008 deterministic-results work. If it fails, unblock `t_1f2110f1` with precise reviewer
+Review I008 task `t_0b4cc633`. If it passes, complete it and allow the board to continue to
+I009 export/start-over work. If it fails, unblock `t_0b4cc633` with precise reviewer
 findings rather than decomposing it.
+
+## Latest I008 implementation notes
+
+- Added deterministic result helpers and `DeterministicResultsScreen` in
+  `src/app/structured-question-flow.tsx`: score-request construction from local answer IDs,
+  DD-6 dimension band labels, strongest-dimension selection, neutral lower-dimension summaries,
+  confidence-reason copy, profile-balance copy, null-index handling, and age-metaphor gating.
+- `Submit assessment` now transitions through the existing `submitting` phase, posts
+  `POST /api/v1/assessments/score` with questionnaire version, structured answer IDs, and the
+  `includeAgeMetaphor` preference, then renders deterministic results immediately from the
+  server response. The AI section is a reserved I011 slot and renders `AI analysis unavailable`.
+- Result cards duplicate visual bars with text equivalents, include the required non-clinical
+  disclaimer, expose reduced-motion/320px/200% layout contract markers, and collapse the
+  two-column dimension grid below 640px.
+- Added I008 tests in `src/app/structured-question-flow.test.ts` for request construction,
+  DD-6 band boundaries, strongest/growth-area helpers, normal result rendering, null-index and
+  insufficient-data states, confidence reasons, age-metaphor gating, and a jsdom flow test from
+  review submit to deterministic results.
+- Experiment record: `docs/experiment/records/2026-07-13-I008-deterministic-results.md`.
+- Reviewer-Cron first rejected I008 because the passed I002 score API dependency still existed
+  only as untracked files, so an I008 reviewer commit would not be reproducible. Rework
+  committed the exact I002 score API baseline as `1460d70` with subject
+  `impl(I002/t_63b0cdfc): add score API baseline`, leaving I008 as a clean follow-on diff for
+  independent review.
+- Fresh verification passed: focused red `pnpm vitest run src/app/structured-question-flow.test.ts`
+  failed for missing I008 helpers/components and no score API call; focused green passed (1 file /
+  27 tests); full `pnpm test`, `pnpm typecheck`, `pnpm build`, and required Git Bash search
+  `grep -RInE "maturity_age_metaphor|maturityAgeMetaphor|AI analysis unavailable" src || true`
+  passed.
 
 ## Latest I007 implementation notes
 
