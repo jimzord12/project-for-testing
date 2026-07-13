@@ -84,6 +84,8 @@ Model limitation | Environment problem | Inconclusive
 | 2026-07-13 | [I011 final verification and project-record update](records/2026-07-13-I011-final-verification.md) | I011 | Hermes/Codex | Environment problem |
 | 2026-07-13 | [I013 privacy-safe observability and rate limiting](records/2026-07-13-I013-observability-rate-limit.md) | I013 | Hermes/Codex | Tool defect |
 | 2026-07-13 | [I013 final verification and project handoff update](records/2026-07-13-I013-final-verification.md) | I013 | Hermes/Codex | Environment problem |
+| 2026-07-13 | [I014 application and transport security hardening](records/2026-07-13-I014-security-hardening.md) | I014 | Hermes/Codex | Environment problem |
+| 2026-07-13 | [I014 reviewer file-tool path and dedup observation](records/2026-07-13-I014-reviewer-file-tool-dedup.md) | I014 review | Hermes/Codex reviewer | Tool defect |
 
 The baseline setup restored source commit `7eb39bd`, added the local DOMAIN/PRD, installed the
 agent workflow, and prepared I001-I019. It is setup provenance, not evidence about a custom tool.

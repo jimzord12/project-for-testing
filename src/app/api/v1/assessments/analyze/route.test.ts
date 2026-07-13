@@ -240,13 +240,16 @@ describe("POST /api/v1/assessments/analyze", () => {
   });
 
   it("requires application/json and valid JSON", async () => {
+    const sentinel = "I014_SENTINEL_ANTHROPIC_SECRET_DO_NOT_SHIP";
     const unsupported = await POST(new Request("http://localhost/api/v1/assessments/analyze", { method: "POST", body: "{}", headers: { "content-type": "text/plain" } }));
     expect(unsupported.status).toBe(415);
     expect(analysisErrorResponseSchema.parse(await unsupported.json()).error.code).toBe("UNSUPPORTED_MEDIA_TYPE");
 
-    const malformed = await POST(new Request("http://localhost/api/v1/assessments/analyze", { method: "POST", body: "{ nope", headers: { "content-type": "application/json" } }));
+    const malformed = await POST(new Request("http://localhost/api/v1/assessments/analyze", { method: "POST", body: `{ "secret": "${sentinel}", nope`, headers: { "content-type": "application/json" } }));
+    const malformedBody = await malformed.json();
     expect(malformed.status).toBe(400);
-    expect(analysisErrorResponseSchema.parse(await malformed.json()).error.code).toBe("MALFORMED_JSON");
+    expect(analysisErrorResponseSchema.parse(malformedBody).error.code).toBe("MALFORMED_JSON");
+    expect(JSON.stringify(malformedBody)).not.toContain(sentinel);
   });
 
   it("rejects missing or false consent before safety or provider work", async () => {

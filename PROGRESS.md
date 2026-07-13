@@ -5,7 +5,7 @@ belong in `docs/experiment/`; they do not change issue status.
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
 
-Last updated: 2026-07-13 (I013 final verification complete)
+Last updated: 2026-07-13 (I014 complete)
 
 ## Milestones
 
@@ -48,17 +48,19 @@ Last updated: 2026-07-13 (I013 final verification complete)
 | [I012](docs/issues/I012-safety-service.md)           | Layered safety classification and help resources      | C     | I010             | ✅     |
 | [I011](docs/issues/I011-analyze-api.md)              | Consent-gated analysis API                            | C     | I002, I010, I012 | ✅     |
 | [I013](docs/issues/I013-observability-rate-limit.md) | Privacy-safe observability and rate limiting          | D     | I002, I011       | ✅     |
-| [I014](docs/issues/I014-security-hardening.md)       | Application and transport security hardening          | D     | I002, I008, I011 | ⬜     |
+| [I014](docs/issues/I014-security-hardening.md)       | Application and transport security hardening          | D     | I002, I008, I011 | ✅     |
 | [I019](docs/issues/I019-ci-pipeline.md)              | Reproducible CI and repository quality gates          | D     | Phase 0          | ✅     |
 | [I015](docs/issues/I015-e2e-tests.md)                | Full E2E journeys                                     | E     | I008, I009, I011 | ⬜     |
 | [I016](docs/issues/I016-accessibility-suite.md)      | Automated and manual accessibility verification       | E     | I005-I008        | ⬜     |
 | [I017](docs/issues/I017-ai-eval-fixtures.md)         | Synthetic AI evaluation fixtures and harness          | E     | I011, I012       | ⬜     |
 | [I018](docs/issues/I018-delivery-docs.md)            | Privacy, threat model, and deployment documentation   | F     | —                | ⬜     |
 
-I013 final verification evidence is recorded in
-`docs/experiment/records/2026-07-13-I013-final-verification.md`; `pnpm test`,
-`pnpm typecheck`, `pnpm build`, and the required `Select-String` source scan passed from
-commit `734c45a` with unrelated workflow/setup workspace files left unstaged.
+I014 implementation/rework evidence is recorded in
+`docs/experiment/records/2026-07-13-I014-security-hardening.md`; `pnpm test`,
+`pnpm typecheck`, `pnpm build`, production dependency audit at high severity, built/live
+sentinel secret scans, production-header and rendered-script nonce checks, and the required
+source scan passed locally. CI builds with sentinel provider secrets before scanning the exact
+artifacts, and a contract test prevents that ordering/environment requirement from regressing.
 
 ## Definition of done
 

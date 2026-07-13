@@ -34,10 +34,35 @@ pnpm install --frozen-lockfile
 pnpm test
 pnpm typecheck
 pnpm build
+ANTHROPIC_API_KEY=I014_SENTINEL_ANTHROPIC_SECRET_DO_NOT_SHIP \
+  OPENAI_API_KEY=I014_SENTINEL_OPENAI_SECRET_DO_NOT_SHIP \
+  pnpm security:scan-secrets
 ```
 
 Node 22 or newer and the pinned pnpm version are required. Copy `.env.example` to
 `.env.local` when needed; Phase 0 and deterministic scoring require no provider credentials.
+
+## Application security headers
+
+Production responses are protected by middleware-managed headers: a nonce-based Content
+Security Policy without `unsafe-inline` or `unsafe-eval` in `script-src`, `object-src 'none'`,
+`base-uri 'self'`, `frame-ancestors 'none'`, restrictive `connect-src` and `form-action`, HSTS,
+framing/MIME/referrer protections, and a restrictive browser `Permissions-Policy`.
+
+Development mode isolates the script allowances that Next.js tooling needs; production CSP tests
+reject those allowances. Public deployments must terminate or redirect HTTP before serving app
+content over HTTPS. Verify deployed transport by checking that `https://<host>/` includes
+`Strict-Transport-Security` and that `http://<host>/` redirects to HTTPS or is rejected by the
+hosting layer before application content is served. I018 owns deployment-provider-specific rules.
+
+The app has no cookie-authenticated session and no cookie-authorized state mutation endpoints, so
+I014 does not add CSRF tokens. The JSON endpoints are same-origin application APIs, rate-limited,
+schema-validated, and do not authorize mutations from ambient cookies. Add CSRF protection if a
+future issue introduces cookie authentication or cookie-backed server state changes.
+
+Use `pnpm security:scan-secrets` after `pnpm build` with sentinel provider secret values in the
+environment. When `I014_SCAN_BASE_URL` or `APP_BASE_URL` is set, the scanner also probes rendered
+HTML and score/analyze API error responses for sentinel leakage.
 
 ## Experimental discipline
 

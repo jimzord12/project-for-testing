@@ -1,6 +1,6 @@
 # I014 — Application and transport security hardening
 
-- **Status:** ⬜ not started
+- **Status:** ✅ done
 - **Phase:** D (cross-cutting)
 - **Depends on:** I002, I008, I011, I019
 - **Complexity:** 4

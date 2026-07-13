@@ -2,11 +2,11 @@
 
 Read this first, then `PROGRESS.md`, then the selected file in `docs/issues/`.
 
-_Last updated: 2026-07-13 (I013 final verification complete)_
+_Last updated: 2026-07-13 (I014 complete)_
 
 ## Current state
 
-Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, I009, I010, I011, I012, I013, and I019 are complete locally.
+Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, I009, I010, I011, I012, I013, I014, and I019 are complete locally.
 I013 has been implemented with typed content-free operational events, final-boundary event
 scrubbing/allowlisting, in-memory score/analyze rate limits with privacy-preserving client keys
 and `Retry-After`, route producers for questionnaire/score/analyze/export telemetry, and
@@ -79,10 +79,49 @@ The new config defaults are `kanban.block_loop_decompose_after: 4` and
 
 ## Next work
 
-I013 final verification is complete and ready for independent review via Kanban task
-`t_8182d058`. The next product work is I014 downstream security hardening; keep its scope
-separate from I013 telemetry/rate-limit internals, I011 provider transport, safety internals,
-deterministic rendering, and persistence.
+I014 is complete locally and ready for independent review via Kanban task `t_d6cdf026`. The next
+product work is I015 full E2E journeys; keep I015 browser journeys separate
+from I014's app-header, artifact-scan, CI-audit, and transport-security contracts.
+
+## Latest I014 implementation notes
+
+- Added `src/server/security-headers.ts` and root `middleware.ts` to attach production security
+  headers: nonce-based CSP, `object-src 'none'`, `base-uri 'self'`, `frame-ancestors 'none'`,
+  restrictive connect/form sources, HSTS in production, framing/MIME/referrer protections,
+  restrictive Permissions-Policy, and disabled Next `X-Powered-By` via `next.config.ts`.
+- Production `script-src` uses a nonce and excludes `unsafe-inline`/`unsafe-eval`; development-only
+  script allowances are isolated behind `production: false`. Inline styles retain `unsafe-inline`
+  only in `style-src` for the current global CSS/Next styling path.
+- Rework after reviewer rejection now forwards the generated CSP through middleware request headers
+  so Next.js can parse the nonce, and sets the app shell to `dynamic = "force-dynamic"` so the
+  production page is server-rendered per request instead of serving static HTML with un-nonced
+  scripts.
+- Added `src/server/security-headers.test.ts` for CSP/header contracts, development isolation,
+  nonce shape/freshness, middleware request CSP forwarding, dynamic app-shell enforcement,
+  raw-HTML sink scanning, CI audit, and sentinel scan script wiring.
+- Extended score/analyze route tests so malformed JSON containing sentinel provider-secret strings
+  never echoes those sentinel values in API error responses. Existing route coverage continues to
+  exercise media type, malformed, oversized ASCII/multibyte streaming bodies, unknown IDs,
+  duplicates, schema strictness, consent, word caps, and bounded readers.
+- Added `scripts/scan-sentinel-secrets.mjs`, `pnpm security:scan-secrets`, and CI steps for
+  `pnpm audit --prod --audit-level=high` plus post-build sentinel scans of built static/server app
+  artifacts. CI injects the sentinel values into the Build step and scans those exact artifacts;
+  the workflow contract test enforces the build environment and build-before-scan ordering. When
+  `I014_SCAN_BASE_URL` or `APP_BASE_URL` is set, the scanner also checks rendered
+  HTML and score/analyze API responses.
+- Documented production HTTPS responsibility, deployed-header check, sentinel scan usage, and CSRF
+  rationale in `README.md`: no CSRF tokens are added because the app has no cookie-authenticated
+  session and no cookie-authorized server-state mutation endpoints.
+- Experiment record: `docs/experiment/records/2026-07-13-I014-security-hardening.md`.
+- Fresh verification passed: focused red `pnpm vitest run src/server/security-headers.test.ts`
+  failed for missing `./security-headers`; rework reds caught missing middleware request CSP
+  forwarding, missing dynamic app-shell config, and missing sentinel values in the CI Build step;
+  focused security/route/CI gate passed (4 files / 42 tests); `pnpm test` passed (20 files / 193
+  tests); `pnpm typecheck` passed; a sentinel-bearing `pnpm build` passed;
+  `pnpm audit --prod --audit-level=high` exited 0 with one moderate vulnerability below threshold;
+  built/live sentinel scan passed (72 built artifact files plus live responses); fresh live
+  `next start -p 3001` HTML/header parsing showed `script-src` nonce with no `unsafe-inline`/
+  `unsafe-eval`, 11 rendered script tags, 4 inline scripts, and `missing_nonce_count: 0`.
 
 ## Latest I013 implementation notes
 

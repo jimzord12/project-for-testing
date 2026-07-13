@@ -80,4 +80,22 @@ describe("GitHub Actions CI workflow contract", () => {
     expect(workflow).toMatch(/^\s+AI_PROVIDER: none$/m);
     expect(workflow).not.toMatch(/secrets\./);
   });
+
+  it("builds with sentinel provider secrets before scanning those artifacts", () => {
+    const build = stepBlock("Build");
+    const scan = stepBlock("Sentinel secret scan");
+
+    for (const sentinel of [
+      "ANTHROPIC_API_KEY: I014_SENTINEL_ANTHROPIC_SECRET_DO_NOT_SHIP",
+      "OPENAI_API_KEY: I014_SENTINEL_OPENAI_SECRET_DO_NOT_SHIP",
+    ]) {
+      expect(build).toContain(sentinel);
+      expect(scan).toContain(sentinel);
+    }
+    expect(build).toContain("run: pnpm build");
+    expect(scan).toContain("run: pnpm security:scan-secrets");
+    expect(workflow.indexOf("- name: Build")).toBeLessThan(
+      workflow.indexOf("- name: Sentinel secret scan"),
+    );
+  });
 });

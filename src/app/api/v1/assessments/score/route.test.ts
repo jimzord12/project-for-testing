@@ -83,10 +83,11 @@ describe("POST /api/v1/assessments/score", () => {
   });
 
   it("rejects malformed JSON", async () => {
+    const sentinel = "I014_SENTINEL_OPENAI_SECRET_DO_NOT_SHIP";
     const response = await POST(
       new Request("http://localhost/api/v1/assessments/score", {
         method: "POST",
-        body: "{ nope",
+        body: `{ "secret": "${sentinel}", nope`,
         headers: { "content-type": "application/json" },
       }),
     );
@@ -94,6 +95,7 @@ describe("POST /api/v1/assessments/score", () => {
 
     expect(response.status).toBe(400);
     expect(scoreErrorResponseSchema.parse(body).error.code).toBe("MALFORMED_JSON");
+    expect(JSON.stringify(body)).not.toContain(sentinel);
   });
 
   it("rejects invalid payload shapes with field errors", async () => {
