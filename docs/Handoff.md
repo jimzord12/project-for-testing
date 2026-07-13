@@ -2,16 +2,18 @@
 
 Read this first, then `PROGRESS.md`, then the selected file in `docs/issues/`.
 
-_Last updated: 2026-07-13 (I010 provider abstraction implementation handoff)_
+_Last updated: 2026-07-13 (I012 safety service implementation handoff)_
 
 ## Current state
 
-Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, I009, I010, and I019 are complete locally.
-I010 has been implemented with a server-only Vercel AI SDK provider seam for disabled,
-Anthropic-compatible, and OpenAI-compatible structured generation. Local verification is
-passing (`pnpm test`, `pnpm typecheck`, `pnpm build`, and the required provider-import/
-secret source scan described below) and it is ready for independent reviewer-Cron
-validation. Safety and analyze API product issues are still open.
+Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, I009, I010, I012, and I019 are complete locally.
+I012 has been implemented with a server-only layered safety service that combines final
+deterministic immediate-risk interrupts, a dedicated schema-constrained provider classifier
+through the I010 seam, provider-failure `review_fallback`, explicit-country help resources,
+and privacy-safe safety log metadata. Local verification is passing (`pnpm test`,
+`pnpm typecheck`, `pnpm build`, and the required `SafetyDecision|review_fallback|interrupt`
+source scan described below) and it is ready for independent reviewer-Cron validation.
+Analyze API product work is still open.
 
 The code/scaffold baseline is source commit `7eb39bd`. The current Hermes skill-test branch
 started from `d9386bd`. Authoritative product specifications are local at `docs/DOMAIN.md`
@@ -73,9 +75,33 @@ The new config defaults are `kanban.block_loop_decompose_after: 4` and
 
 ## Next work
 
-Review I010 task `t_4cf31ada`. If it passes, complete it and allow the board to continue to
-I012 safety-service work. If it fails, unblock `t_4cf31ada` with precise reviewer findings
+Review I012 task `t_d3ffd1d3`. If it passes, complete it and allow the board to continue to
+I011 analyze API work. If it fails, unblock `t_d3ffd1d3` with precise reviewer findings
 rather than decomposing it.
+
+## Latest I012 implementation notes
+
+- Added `src/server/safety-service.ts` with `SafetyDecision` unions for `allow`, categorized
+  `interrupt`, and `review_fallback`; `safetyDecisionSuppressesAnalysis`; and
+  `toSafetyLogEvent` metadata that excludes narrative text, prompts, and provider output.
+- The deterministic rule layer conservatively interrupts credible immediate self-harm, harm to
+  others, and active-emergency fixtures before any provider call. Rule-layer interrupts are final
+  and non-downgradeable.
+- Non-empty narrative content that is not rule-interrupted goes through the I010
+  `generateStructuredObject` seam using `SAFETY_CLASSIFIER_OUTPUT_SCHEMA` and a dedicated safety
+  prompt that contains no maturity scoring or rubric instruction. Provider disabled/timeout/error/
+  invalid-output and schema-invalid success objects resolve to `review_fallback`, never `allow`.
+- Added `selectSafetyHelpResources` with international defaults and explicit supported country
+  additions (`US`, `CA`, `GB`, `AU`) without inferring location from narrative text.
+- Added `src/server/safety-service.test.ts` covering immediate-risk rules, provider invocation,
+  ambiguous/provider-failure fallback, ordinary/figurative language, empty narratives, help
+  resource selection, logging boundaries, and the I011 analysis-suppression helper.
+- Experiment record: `docs/experiment/records/2026-07-13-I012-safety-service.md`.
+- Fresh verification passed: focused red `pnpm vitest run src/server/safety-service.test.ts`
+  failed for missing `./safety-service`; focused green passed (1 file / 8 tests), full
+  `pnpm test` passed (14 files / 138 tests), `pnpm typecheck` passed, `pnpm build` passed, and
+  required Git Bash search `grep -RInE "SafetyDecision|review_fallback|interrupt" src/server || true`
+  returned expected safety-service implementation/test references.
 
 ## Latest I010 implementation notes
 
