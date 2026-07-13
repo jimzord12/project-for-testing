@@ -2,7 +2,7 @@
 
 Read this first, then `PROGRESS.md`, then the selected file in `docs/issues/`.
 
-_Last updated: 2026-07-13 (I013 observability and rate limiting complete)_
+_Last updated: 2026-07-13 (I013 final verification complete)_
 
 ## Current state
 
@@ -79,9 +79,10 @@ The new config defaults are `kanban.block_loop_decompose_after: 4` and
 
 ## Next work
 
-I013 verification is complete. The next product work is I014 downstream security hardening;
-keep its scope separate from I013 telemetry/rate-limit internals, I011 provider transport,
-safety internals, deterministic rendering, and persistence.
+I013 final verification is complete and ready for independent review via Kanban task
+`t_8182d058`. The next product work is I014 downstream security hardening; keep its scope
+separate from I013 telemetry/rate-limit internals, I011 provider transport, safety internals,
+deterministic rendering, and persistence.
 
 ## Latest I013 implementation notes
 
@@ -112,10 +113,17 @@ safety internals, deterministic rendering, and persistence.
   builders for every declared operational event and full-IP value redaction at the final logging
   boundary. Decomposed follow-up task `t_92865e2d` added route-friendly limiter `state`/`resetAt`
   coverage.
-- Experiment record: `docs/experiment/records/2026-07-13-I013-observability-rate-limit.md`.
+- Experiment records: `docs/experiment/records/2026-07-13-I013-observability-rate-limit.md`
+  and `docs/experiment/records/2026-07-13-I013-final-verification.md`.
 - Fresh verification passed after follow-up task `t_92865e2d`: focused rate-limit/score/analyze
   route gate (3 files / 34 tests), focused logging/rate-limit gate (2 files / 14 tests),
   `pnpm test` (19 files / 185 tests), `pnpm typecheck`, and `pnpm build`.
+- Final verification task `t_8182d058` reran the required full gate from commit `734c45a`:
+  `pnpm test` passed (19 files / 185 tests), `pnpm typecheck` passed, `pnpm build` passed,
+  and PowerShell scan `Get-ChildItem -Path src -Recurse -File | Select-String -Pattern
+  "emitEvent|RATE_LIMIT_ENABLED|Retry-After"` returned expected route/module/test references.
+  The workspace still has unrelated dirty/untracked workflow/setup files from earlier work; no
+  I013 source files were dirty before this final documentation update.
 
 ## Latest I011 implementation notes
 

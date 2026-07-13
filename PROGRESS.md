@@ -5,7 +5,7 @@ belong in `docs/experiment/`; they do not change issue status.
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
 
-Last updated: 2026-07-13 (I013 observability and rate limiting complete)
+Last updated: 2026-07-13 (I013 final verification complete)
 
 ## Milestones
 
@@ -54,6 +54,11 @@ Last updated: 2026-07-13 (I013 observability and rate limiting complete)
 | [I016](docs/issues/I016-accessibility-suite.md)      | Automated and manual accessibility verification       | E     | I005-I008        | ⬜     |
 | [I017](docs/issues/I017-ai-eval-fixtures.md)         | Synthetic AI evaluation fixtures and harness          | E     | I011, I012       | ⬜     |
 | [I018](docs/issues/I018-delivery-docs.md)            | Privacy, threat model, and deployment documentation   | F     | —                | ⬜     |
+
+I013 final verification evidence is recorded in
+`docs/experiment/records/2026-07-13-I013-final-verification.md`; `pnpm test`,
+`pnpm typecheck`, `pnpm build`, and the required `Select-String` source scan passed from
+commit `734c45a` with unrelated workflow/setup workspace files left unstaged.
 
 ## Definition of done
 
