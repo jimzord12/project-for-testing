@@ -2,15 +2,16 @@
 
 Read this first, then `PROGRESS.md`, then the selected file in `docs/issues/`.
 
-_Last updated: 2026-07-13 (I006 implementation handoff)_
+_Last updated: 2026-07-13 (I007 browser-test rework handoff)_
 
 ## Current state
 
-Phase 0, I001, I002, I003, I004, I005, and I019 are complete and verified by review. I006
-has been implemented with local verification passing (`pnpm test`, `pnpm typecheck`,
-`pnpm build`, and the required `countWords|Skip this exercise` source search described
-below) and is ready for independent reviewer-Cron validation. Downstream review/results
-product issues are still open.
+Phase 0, I001, I002, I003, I004, I005, I006, and I019 are complete and verified by review.
+I007 has been implemented and reworked after reviewer rejection to add DOM/browser-level
+edit/focus coverage. Local verification is passing (`pnpm test`, `pnpm typecheck`,
+`pnpm build`, and the required `Submit assessment|Not applicable` source search described
+below) and it is ready for independent reviewer-Cron validation. Downstream deterministic
+results/export product issues are still open.
 
 The code/scaffold baseline is source commit `7eb39bd`. The current Hermes skill-test branch
 started from `d9386bd`. Authoritative product specifications are local at `docs/DOMAIN.md`
@@ -28,8 +29,8 @@ Hermes workflow state:
 - Workflow id: `rmp-product-backlog-hermes-test-v2`
 - START task id: `t_bd4b6145`
 - Current state: START is complete; I001 `t_6ee254df`, I002 `t_63b0cdfc`, I003
-  `t_3d63fb10`, I004 `t_2841b822`, I005 `t_4b7e78fa`, and I019 `t_e8990795`
-  passed review; I006 `t_411b4971` has been implemented and should now be reviewed. Old I002 root
+  `t_3d63fb10`, I004 `t_2841b822`, I005 `t_4b7e78fa`, I006 `t_411b4971`, and I019 `t_e8990795`
+  passed review; I007 `t_1f2110f1` has been implemented and should now be reviewed. Old I002 root
   `t_21792a89` and its decomposed children `t_5bee910c`, `t_544bc896`, `t_f1d032e5`,
   `t_1dffbdd9`, and `t_38397722` were permanently deleted after archiving. Fresh I002 task
   `t_63b0cdfc` was recreated from the original I002 body, linked as
@@ -71,9 +72,41 @@ The new config defaults are `kanban.block_loop_decompose_after: 4` and
 
 ## Next work
 
-Review I006 task `t_411b4971`. If it passes, complete it and allow the board to continue to
-I007 downstream review-screen work. If it fails, unblock `t_411b4971` with precise reviewer
+Review I007 task `t_1f2110f1`. If it passes, complete it and allow the board to continue to
+I008 deterministic-results work. If it fails, unblock `t_1f2110f1` with precise reviewer
 findings rather than decomposing it.
+
+## Latest I007 implementation notes
+
+- Added score-free review helpers and `ReviewScreen` in `src/app/structured-question-flow.tsx`:
+  per-dimension counts distinguish answered, `Not applicable`, completed, and unanswered items;
+  narrative statuses derive from explicit skip state plus canonical minimum-word thresholds.
+- The review UI renders neutral item IDs/statuses only, never selected option labels, numeric
+  results, answer desirability, bands, or interpretation. AI-analysis and age-metaphor choices
+  are displayed as read-only enabled/disabled summaries.
+- Edit actions cover all 24 structured items and both narrative exercises. Each button carries
+  the target step index and target heading id; the flow dispatches `set_current_step_index` before
+  returning to the `assessment` phase so the existing I005/I006 heading focus seam moves visible
+  focus after mount.
+- Review Back returns to the assessment phase. `Submit assessment` changes phase only to
+  `submitting`; I008 still owns the score call and result rendering.
+- Added review helper/render tests in `src/app/structured-question-flow.test.ts` for counts,
+  narrative threshold boundaries, edit targets, score-free rendering, native button semantics,
+  and submit affordance. After reviewer rejection, added Vitest jsdom browser-DOM tests that
+  click structured and narrative edit controls, assert mounted heading focus via
+  `document.activeElement`, verify edit controls do not submit, and verify only
+  `Submit assessment` moves to the submitting phase. `jsdom` is now a dev dependency.
+- Added review styles in `src/app/globals.css` and routed `review`/`submitting` phases through
+  `LandingConsentFlowInner`.
+- Experiment record: `docs/experiment/records/2026-07-13-I007-review-screen.md`.
+- Fresh verification passed before rework: focused red `pnpm vitest run src/app/structured-question-flow.test.ts`
+  failed for missing I007 helpers/components, focused green passed (1 file / 19 tests), full
+  `pnpm test` passed (12 files / 107 tests), `pnpm typecheck` passed, `pnpm build` passed, and
+  required Git Bash search `grep -RInE "Submit assessment|Not applicable" src || true` returned
+  expected review/test/domain/API references. Rework added a jsdom red run for missing browser
+  infrastructure and a green focused run passing 21 tests. Final rework verification passed:
+  `pnpm test` (12 files / 109 tests), `pnpm typecheck`, `pnpm build`, required Git Bash search,
+  and `git diff --check` with only existing CRLF warnings.
 
 ## Latest I006 implementation notes
 

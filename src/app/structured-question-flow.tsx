@@ -104,6 +104,104 @@ export function enforceNarrativeFieldCap(nextValue: string, previousValue: strin
   return countWords(nextValue) > maxWords ? previousValue : nextValue;
 }
 
+export type DimensionReviewCount = {
+  dimension: DimensionId;
+  label: string;
+  total: number;
+  answered: number;
+  notApplicable: number;
+  completed: number;
+  unanswered: number;
+};
+
+export type NarrativeReviewStatus = "complete" | "partial" | "skipped";
+
+export type NarrativeReviewSummary = {
+  exerciseId: string;
+  title: string;
+  status: NarrativeReviewStatus;
+  wordCount: number;
+  minimumWords: number;
+};
+
+export type ReviewEditTarget = {
+  stepIndex: number;
+  headingFocusId: string;
+};
+
+export function buildDimensionReviewCounts(
+  questionnaire: PublicQuestionnaireResponse,
+  structuredAnswers: AssessmentState["structuredAnswers"],
+): DimensionReviewCount[] {
+  const counts = Object.entries(DIMENSION_LABELS).map(([dimension, label]) => ({
+    dimension: dimension as DimensionId,
+    label,
+    total: 0,
+    answered: 0,
+    notApplicable: 0,
+    completed: 0,
+    unanswered: 0,
+  }));
+  const byDimension = new Map(counts.map((count) => [count.dimension, count]));
+
+  for (const step of questionnaire.steps) {
+    if (step.kind !== "structured") continue;
+    const count = byDimension.get(step.dimension);
+    if (!count) continue;
+    count.total += 1;
+
+    const selectedOptionId = structuredAnswers[step.id];
+    const selectedOption = step.options.find((option) => option.id === selectedOptionId);
+    if (!selectedOption) {
+      count.unanswered += 1;
+    } else if (selectedOption.isNotApplicable) {
+      count.notApplicable += 1;
+      count.completed += 1;
+    } else {
+      count.answered += 1;
+      count.completed += 1;
+    }
+  }
+
+  return counts;
+}
+
+export function summarizeNarrativeReviewStatus(
+  questionnaire: PublicQuestionnaireResponse,
+  exerciseId: string,
+  draft: AssessmentState["narratives"][string] | undefined,
+): NarrativeReviewSummary {
+  const exercise = questionnaire.steps.find((step) => step.kind === "narrative" && step.id === exerciseId);
+  const title = exercise?.kind === "narrative" ? exercise.title : exerciseId;
+  const minimumWords = exercise?.kind === "narrative" ? exercise.minimumTotalWords : 0;
+  const wordCount = draft?.skipped ? 0 : countWords(Object.values(draft?.fields ?? {}).join(" "));
+  const status: NarrativeReviewStatus = draft?.skipped || wordCount === 0
+    ? "skipped"
+    : wordCount >= minimumWords
+      ? "complete"
+      : "partial";
+
+  return { exerciseId, title, status, wordCount, minimumWords };
+}
+
+export function resolveReviewEditTarget(
+  questionnaire: PublicQuestionnaireResponse,
+  itemId: string,
+): ReviewEditTarget | null {
+  const stepIndex = questionnaire.steps.findIndex((step) => step.id === itemId);
+  if (stepIndex < 0) return null;
+  return {
+    stepIndex,
+    headingFocusId: makeQuestionHeadingFocusId(stepIndex),
+  };
+}
+
+function formatNarrativeStatus(status: NarrativeReviewStatus): string {
+  if (status === "complete") return "Complete";
+  if (status === "partial") return "Partial";
+  return "Skipped";
+}
+
 const NARRATIVE_PRIVACY_NOTICE =
   "These answers may contain personal information. You can skip them and still receive the structured profile. When AI analysis is enabled, the text is sent to the configured AI provider for this analysis.";
 
@@ -311,9 +409,168 @@ export function StructuredQuestionScreen({
   );
 }
 
+type ReviewScreenProps = {
+  questionnaire: PublicQuestionnaireResponse;
+  state: AssessmentState;
+  onBack: () => void;
+  onEditStep: (stepIndex: number) => void;
+  onSubmit: () => void;
+};
+
+export function ReviewScreen({ questionnaire, state, onBack, onEditStep, onSubmit }: ReviewScreenProps) {
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const dimensionCounts = buildDimensionReviewCounts(questionnaire, state.structuredAnswers);
+  const structuredSteps = questionnaire.steps.filter((step) => step.kind === "structured");
+  const narrativeSteps = questionnaire.steps.filter((step) => step.kind === "narrative");
+
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+
+  return (
+    <main className="flow-shell questionnaire-shell review-shell" data-focus-seam="heading">
+      <section aria-labelledby="review-title" className="card review-card">
+        <p className="eyebrow">Review</p>
+        <h1 id="review-title" ref={headingRef} tabIndex={-1} className="question-heading">
+          Review before submitting
+        </h1>
+        <p className="question-prompt">
+          Check completeness before submitting. This review does not show numeric results, maturity bands, or
+          selected answer labels.
+        </p>
+
+        <section aria-labelledby="review-dimensions-title" className="review-section">
+          <h2 id="review-dimensions-title">Structured item completeness</h2>
+          <ul className="review-summary-list">
+            {dimensionCounts.map((count) => (
+              <li
+                key={count.dimension}
+                aria-label={`${count.label}: ${count.completed} of ${count.total} completed; ${count.answered} answered, ${count.notApplicable} Not applicable, ${count.unanswered} unanswered.`}
+              >
+                <strong>{count.label}</strong>: {count.completed} of {count.total} completed; {count.answered} answered, {count.notApplicable} Not applicable, {count.unanswered} unanswered.
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section aria-labelledby="review-items-title" className="review-section">
+          <h2 id="review-items-title">Structured items</h2>
+          <ol className="review-item-list">
+            {structuredSteps.map((step) => {
+              const selectedOptionId = state.structuredAnswers[step.id];
+              const selectedOption = step.options.find((option) => option.id === selectedOptionId);
+              const status = !selectedOption
+                ? "Unanswered"
+                : selectedOption.isNotApplicable
+                  ? "Not applicable"
+                  : "Answered";
+              const editTarget = resolveReviewEditTarget(questionnaire, step.id);
+
+              return (
+                <li key={step.id}>
+                  <span>{step.id}: {status}</span>
+                  {editTarget ? (
+                    <button
+                      type="button"
+                      className="secondary-action compact-action"
+                      data-edit-step-index={editTarget.stepIndex}
+                      data-edit-heading-id={editTarget.headingFocusId}
+                      onClick={() => onEditStep(editTarget.stepIndex)}
+                      aria-label={`Edit ${step.id}. Opens ${editTarget.headingFocusId} and moves focus to that heading.`}
+                    >
+                      Edit
+                    </button>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+
+        <section aria-labelledby="review-narratives-title" className="review-section">
+          <h2 id="review-narratives-title">Optional narrative exercises</h2>
+          <ul className="review-item-list">
+            {narrativeSteps.map((step) => {
+              const summary = summarizeNarrativeReviewStatus(questionnaire, step.id, state.narratives[step.id]);
+              const editTarget = resolveReviewEditTarget(questionnaire, step.id);
+              return (
+                <li key={step.id}>
+                  <span>
+                    {summary.title}: {formatNarrativeStatus(summary.status)} ({summary.wordCount} of {summary.minimumWords} minimum words)
+                  </span>
+                  {editTarget ? (
+                    <button
+                      type="button"
+                      className="secondary-action compact-action"
+                      data-edit-step-index={editTarget.stepIndex}
+                      data-edit-heading-id={editTarget.headingFocusId}
+                      onClick={() => onEditStep(editTarget.stepIndex)}
+                      aria-label={`Edit ${summary.title}. Opens ${editTarget.headingFocusId} and moves focus to that heading.`}
+                    >
+                      Edit
+                    </button>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
+        <section aria-labelledby="review-choices-title" className="review-section">
+          <h2 id="review-choices-title">Result choices</h2>
+          <ul className="review-summary-list">
+            <li>AI-assisted narrative analysis: {state.consent.aiConsent ? "enabled" : "disabled"}</li>
+            <li>Maturity-age metaphor: {state.preferences.includeAgeMetaphor ? "enabled" : "disabled"}</li>
+          </ul>
+        </section>
+
+        <nav className="question-navigation" aria-label="Review navigation">
+          <button type="button" className="secondary-action" onClick={onBack}>
+            Back
+          </button>
+          <button type="button" className="primary-action" onClick={onSubmit}>
+            Submit assessment
+          </button>
+        </nav>
+      </section>
+    </main>
+  );
+}
+
+function SubmittingScreen() {
+  return (
+    <main className="flow-shell questionnaire-shell">
+      <section aria-labelledby="submitting-title" className="card review-card">
+        <p className="eyebrow">Submit</p>
+        <h1 id="submitting-title" className="question-heading" tabIndex={-1}>Submitting assessment</h1>
+        <p className="question-prompt">Preparing the deterministic submission. Results are implemented in the next issue.</p>
+      </section>
+    </main>
+  );
+}
+
 export function StructuredQuestionFlow({ questionnaire }: { questionnaire: PublicQuestionnaireResponse }) {
   const { state, dispatch, discardLocalDraft } = useAssessment();
   const steps = useMemo(() => buildAssessmentSteps(questionnaire), [questionnaire]);
+
+  if (state.phase === "review") {
+    return (
+      <ReviewScreen
+        questionnaire={questionnaire}
+        state={state}
+        onBack={() => dispatch({ type: "set_phase", phase: "assessment" })}
+        onEditStep={(stepIndex) => {
+          dispatch({ type: "set_current_step_index", currentStepIndex: stepIndex });
+          dispatch({ type: "set_phase", phase: "assessment" });
+        }}
+        onSubmit={() => dispatch({ type: "set_phase", phase: "submitting" })}
+      />
+    );
+  }
+
+  if (state.phase === "submitting") {
+    return <SubmittingScreen />;
+  }
 
   return (
     <StructuredQuestionScreen

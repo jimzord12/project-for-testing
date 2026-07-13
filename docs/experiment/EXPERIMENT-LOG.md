@@ -73,6 +73,8 @@ Model limitation | Environment problem | Inconclusive
 | 2026-07-13 | [I004 landing, consent, and optional choices](records/2026-07-13-I004-landing-consent.md) | I004 | Hermes/Codex | Environment problem |
 | 2026-07-13 | [I005 accessible structured-question flow](records/2026-07-13-I005-structured-question-flow.md) | I005 | Hermes/Codex | Environment problem |
 | 2026-07-13 | [I006 optional narrative exercises](records/2026-07-13-I006-narrative-ui.md) | I006 | Hermes/Codex | Tool defect |
+| 2026-07-13 | [I007 review, edit, and submit screen](records/2026-07-13-I007-review-screen.md) | I007 | Hermes/Codex | Environment problem |
+| 2026-07-13 | [I007 review-card browser-test acceptance drift](records/2026-07-13-I007-review-card-browser-test-drift.md) | I007 | Hermes/Codex reviewer | Workflow problem |
 
 The baseline setup restored source commit `7eb39bd`, added the local DOMAIN/PRD, installed the
 agent workflow, and prepared I001-I019. It is setup provenance, not evidence about a custom tool.

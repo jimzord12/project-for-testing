@@ -161,7 +161,7 @@ export function LandingConsentScreen({
 function LandingConsentFlowInner({ questionnaire }: { questionnaire: PublicQuestionnaireResponse }) {
   const { state, dispatch } = useAssessment();
 
-  if (state.phase === "assessment") {
+  if (state.phase === "assessment" || state.phase === "review" || state.phase === "submitting") {
     return <StructuredQuestionFlow questionnaire={questionnaire} />;
   }
 

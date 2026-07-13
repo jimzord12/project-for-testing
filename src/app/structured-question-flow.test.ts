@@ -1,22 +1,37 @@
-import { createElement } from "react";
+// @vitest-environment jsdom
+
+import { act, createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   DIMENSION_LABELS,
+  ReviewScreen,
+  StructuredQuestionFlow,
   StructuredQuestionScreen,
   buildAssessmentSteps,
+  buildDimensionReviewCounts,
   enforceNarrativeFieldCap,
   getAdjacentStepIndex,
   handleRadioKeyDown,
   makeQuestionHeadingFocusId,
+  resolveReviewEditTarget,
+  summarizeNarrativeReviewStatus,
   shouldShowNarrativeWordWarning,
 } from "./structured-question-flow";
-import { createInitialAssessmentState, serializeAssessmentState } from "@/client/assessment-state";
+import {
+  ASSESSMENT_SESSION_STORAGE_KEY,
+  AssessmentProvider,
+  createInitialAssessmentState,
+  serializeAssessmentState,
+} from "@/client/assessment-state";
 import { getPublicQuestionnaire } from "@/domain/questionnaire";
 import { SCORING_VERSION } from "@/domain/versions";
 import { countWords } from "@/domain/narrative-rubric";
 import { publicQuestionnaireResponseSchema, type PublicQuestionnaireResponse } from "./api/v1/questionnaire/route";
+
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 function publicQuestionnaireFixture(): PublicQuestionnaireResponse {
   const projection = getPublicQuestionnaire();
@@ -50,6 +65,96 @@ function renderQuestionScreen(state = createInitialAssessmentState()) {
       onExitAndDelete: () => undefined,
     }),
   );
+}
+
+function renderReviewScreen(state = createInitialAssessmentState()) {
+  return renderToStaticMarkup(
+    createElement(ReviewScreen, {
+      questionnaire: publicQuestionnaireFixture(),
+      state,
+      onBack: () => undefined,
+      onEditStep: () => undefined,
+      onSubmit: () => undefined,
+    }),
+  );
+}
+
+class MemoryStorage implements Storage {
+  private values = new Map<string, string>();
+
+  get length() {
+    return this.values.size;
+  }
+
+  clear() {
+    this.values.clear();
+  }
+
+  getItem(key: string) {
+    return this.values.get(key) ?? null;
+  }
+
+  key(index: number) {
+    return Array.from(this.values.keys())[index] ?? null;
+  }
+
+  removeItem(key: string) {
+    this.values.delete(key);
+  }
+
+  setItem(key: string, value: string) {
+    this.values.set(key, value);
+  }
+}
+
+let mountedRoot: Root | null = null;
+let mountedContainer: HTMLDivElement | null = null;
+
+function cleanupMountedFlow() {
+  if (mountedRoot) {
+    act(() => mountedRoot?.unmount());
+  }
+  mountedRoot = null;
+  mountedContainer?.remove();
+  mountedContainer = null;
+}
+
+afterEach(() => {
+  cleanupMountedFlow();
+});
+
+function renderFlowInBrowser(state = createInitialAssessmentState()) {
+  cleanupMountedFlow();
+  const storage = new MemoryStorage();
+  storage.setItem(ASSESSMENT_SESSION_STORAGE_KEY, serializeAssessmentState(state));
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+
+  act(() => {
+    root.render(
+      createElement(
+        AssessmentProvider,
+        {
+          storage,
+          debounceMs: 0,
+          children: createElement(StructuredQuestionFlow, { questionnaire: publicQuestionnaireFixture() }),
+        },
+      ),
+    );
+  });
+
+  mountedRoot = root;
+  mountedContainer = container;
+  return { container, storage };
+}
+
+function getButtonByLabel(container: HTMLElement, label: RegExp): HTMLButtonElement {
+  const button = Array.from(container.querySelectorAll("button")).find((candidate) =>
+    label.test(candidate.getAttribute("aria-label") ?? candidate.textContent ?? ""),
+  );
+  if (!(button instanceof HTMLButtonElement)) throw new Error(`Missing button matching ${label}`);
+  return button;
 }
 
 describe("I005 assessment step mapping", () => {
@@ -243,5 +348,171 @@ describe("I005 structured question screen", () => {
     expect(handleRadioKeyDown(" ", 2, 6)).toEqual({ action: "select", nextIndex: 2 });
     expect(handleRadioKeyDown("Enter", 3, 6)).toEqual({ action: "select", nextIndex: 3 });
     expect(handleRadioKeyDown("Tab", 3, 6)).toEqual({ action: "ignore", nextIndex: 3 });
+  });
+});
+
+describe("I007 review helpers", () => {
+  it("counts answered, Not applicable, and unanswered structured items per dimension without double-counting completed items", () => {
+    const counts = buildDimensionReviewCounts(publicQuestionnaireFixture(), {
+      ER01: "C",
+      ER02: "NA",
+      ER04: "B",
+      IC01: "NA",
+      IS01: "E",
+    });
+
+    expect(counts.find((count) => count.dimension === "ER")).toMatchObject({
+      total: 5,
+      answered: 2,
+      notApplicable: 1,
+      completed: 3,
+      unanswered: 2,
+    });
+    expect(counts.find((count) => count.dimension === "IC")).toMatchObject({
+      total: 5,
+      answered: 0,
+      notApplicable: 1,
+      completed: 1,
+      unanswered: 4,
+    });
+    expect(counts.find((count) => count.dimension === "IS")).toMatchObject({
+      total: 4,
+      answered: 1,
+      notApplicable: 0,
+      completed: 1,
+      unanswered: 3,
+    });
+  });
+
+  it("derives narrative complete, partial, and skipped labels from skip intent and canonical thresholds", () => {
+    const words45 = Array.from({ length: 45 }, (_, index) => `word${index}`).join(" ");
+    const words34 = Array.from({ length: 34 }, (_, index) => `word${index}`).join(" ");
+    const words35 = Array.from({ length: 35 }, (_, index) => `word${index}`).join(" ");
+
+    expect(summarizeNarrativeReviewStatus(publicQuestionnaireFixture(), "N01", { skipped: true, fields: {} })).toMatchObject({
+      status: "skipped",
+      wordCount: 0,
+      minimumWords: 45,
+    });
+    expect(summarizeNarrativeReviewStatus(publicQuestionnaireFixture(), "N01", { skipped: false, fields: { event: words45 } })).toMatchObject({
+      status: "complete",
+      wordCount: 45,
+      minimumWords: 45,
+    });
+    expect(summarizeNarrativeReviewStatus(publicQuestionnaireFixture(), "N02", { skipped: false, fields: { pattern: words34 } })).toMatchObject({
+      status: "partial",
+      wordCount: 34,
+      minimumWords: 35,
+    });
+    expect(summarizeNarrativeReviewStatus(publicQuestionnaireFixture(), "N02", { skipped: false, fields: { pattern: words35 } })).toMatchObject({ status: "complete" });
+  });
+
+  it("resolves edit targets for every structured item and narrative exercise to the existing focus seam ids", () => {
+    expect(resolveReviewEditTarget(publicQuestionnaireFixture(), "ER01")).toEqual({
+      stepIndex: 0,
+      headingFocusId: "assessment-step-1-heading",
+    });
+    expect(resolveReviewEditTarget(publicQuestionnaireFixture(), "N01")).toEqual({
+      stepIndex: 8,
+      headingFocusId: "assessment-step-9-heading",
+    });
+    expect(resolveReviewEditTarget(publicQuestionnaireFixture(), "N02")).toEqual({
+      stepIndex: 15,
+      headingFocusId: "assessment-step-16-heading",
+    });
+    expect(resolveReviewEditTarget(publicQuestionnaireFixture(), "TD05")).toEqual({
+      stepIndex: 25,
+      headingFocusId: "assessment-step-26-heading",
+    });
+  });
+});
+
+describe("I007 review screen", () => {
+  it("renders accessible dimension counts, full neutral item statuses, and read-only result choices without selected option labels", () => {
+    const state = {
+      ...createInitialAssessmentState(),
+      phase: "review" as const,
+      structuredAnswers: { ER01: "C", ER02: "NA", IC01: "A" },
+      consent: { isAdult: true, nonClinicalAcknowledged: true, aiConsent: true },
+      preferences: { includeAgeMetaphor: true, autoAdvance: false, reducedMotionOverride: null },
+    };
+    const html = renderReviewScreen(state);
+
+    expect(html).toContain("Review before submitting");
+    expect(html).toContain("Emotional Regulation: 2 of 5 completed; 1 answered, 1 Not applicable, 3 unanswered.");
+    expect(html).toContain("ER01: Answered");
+    expect(html).toContain("ER02: Not applicable");
+    expect(html).toContain("ER03: Unanswered");
+    expect(html).toContain("AI-assisted narrative analysis: enabled");
+    expect(html).toContain("Maturity-age metaphor: enabled");
+    expect(html).not.toContain("I asked for a concrete example");
+    expect(html.toLowerCase()).not.toContain("score");
+    expect(html.toLowerCase()).not.toContain("mature answer");
+  });
+
+  it("renders narrative statuses and edit buttons with safe dispatch targets plus native keyboard button semantics", () => {
+    const words45 = Array.from({ length: 45 }, (_, index) => `word${index}`).join(" ");
+    const html = renderReviewScreen({
+      ...createInitialAssessmentState(),
+      phase: "review",
+      narratives: {
+        N01: { skipped: false, fields: { event: words45 } },
+        N02: { skipped: true, fields: {} },
+      },
+    });
+
+    expect(html).toContain("The Friction Story: Complete");
+    expect(html).toContain("The Unsolved Pattern: Skipped");
+    expect(html).toContain("data-edit-step-index=\"0\"");
+    expect(html).toContain("data-edit-step-index=\"8\"");
+    expect(html).toContain("data-edit-heading-id=\"assessment-step-9-heading\"");
+    expect(html).toContain("type=\"button\"");
+    expect(html).toContain("Submit assessment");
+  });
+
+  it("opens structured and narrative edit destinations in a browser DOM and moves visible focus to the mounted heading", () => {
+    const { container } = renderFlowInBrowser({ ...createInitialAssessmentState(), phase: "review" });
+
+    expect(document.activeElement?.id).toBe("review-title");
+
+    const structuredEdit = getButtonByLabel(container, /^Edit ER01\./);
+    expect(structuredEdit.type).toBe("button");
+
+    act(() => structuredEdit.click());
+
+    expect(container.querySelector("h1")?.textContent).toBe("Receiving criticism");
+    expect(document.activeElement?.id).toBe("assessment-step-1-heading");
+
+    const finalStepState = { ...createInitialAssessmentState(), phase: "review" as const, currentStepIndex: 25 };
+    const rerendered = renderFlowInBrowser(finalStepState);
+
+    expect(rerendered.container.querySelector("h1")?.textContent).toBe("Review before submitting");
+    expect(document.activeElement?.id).toBe("review-title");
+
+    const narrativeEdit = getButtonByLabel(rerendered.container, /^Edit The Friction Story\./);
+    expect(narrativeEdit.type).toBe("button");
+
+    act(() => narrativeEdit.click());
+
+    expect(rerendered.container.querySelector("h1")?.textContent).toBe("The Friction Story");
+    expect(document.activeElement?.id).toBe("assessment-step-9-heading");
+  });
+
+  it("keeps edit controls from submitting and advances to the submitting phase only from the Submit button", () => {
+    const { container, storage } = renderFlowInBrowser({ ...createInitialAssessmentState(), phase: "review" });
+
+    act(() => getButtonByLabel(container, /^Edit ER01\./).click());
+
+    expect(container.querySelector("h1")?.textContent).toBe("Receiving criticism");
+    expect(storage.getItem(ASSESSMENT_SESSION_STORAGE_KEY)).not.toContain('\"phase\":\"submitting\"');
+
+    const reviewState = { ...createInitialAssessmentState(), phase: "review" as const };
+    const rerendered = renderFlowInBrowser(reviewState);
+
+    act(() => getButtonByLabel(rerendered.container, /^Submit assessment$/).click());
+
+    expect(rerendered.container.querySelector("h1")?.textContent).toBe("Submitting assessment");
+    cleanupMountedFlow();
+    expect(rerendered.storage.getItem(ASSESSMENT_SESSION_STORAGE_KEY)).toContain('\"phase\":\"submitting\"');
   });
 });

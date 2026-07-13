@@ -243,6 +243,32 @@ legend {
   padding-left: 12px;
 }
 
+.review-section {
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+
+.review-summary-list,
+.review-item-list {
+  display: grid;
+  gap: 12px;
+  padding-left: 1.25rem;
+}
+
+.review-item-list li {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.compact-action {
+  margin-top: 0;
+  padding: 8px 14px;
+}
+
 .question-navigation {
   display: flex;
   flex-wrap: wrap;
