@@ -71,6 +71,7 @@ Model limitation | Environment problem | Inconclusive
 | 2026-07-13 | [I019 reproducible CI quality gates](records/2026-07-13-I019-ci-quality-gates.md) | I019 | Hermes/Codex | Environment problem |
 | 2026-07-13 | [I003 client assessment state and session persistence](records/2026-07-13-I003-client-state-persistence.md) | I003 | Hermes/Codex | Environment problem |
 | 2026-07-13 | [I004 landing, consent, and optional choices](records/2026-07-13-I004-landing-consent.md) | I004 | Hermes/Codex | Environment problem |
+| 2026-07-13 | [I005 accessible structured-question flow](records/2026-07-13-I005-structured-question-flow.md) | I005 | Hermes/Codex | Environment problem |
 
 The baseline setup restored source commit `7eb39bd`, added the local DOMAIN/PRD, installed the
 agent workflow, and prepared I001-I019. It is setup provenance, not evidence about a custom tool.

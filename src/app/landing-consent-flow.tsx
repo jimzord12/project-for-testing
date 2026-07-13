@@ -1,8 +1,9 @@
 "use client";
 
-import { PUBLIC_DISCLAIMER } from "@/domain/questionnaire";
 import { QUESTIONNAIRE_VERSION, SCORING_VERSION } from "@/domain/versions";
 import { AssessmentProvider, type AssessmentState, useAssessment } from "@/client/assessment-state";
+import type { PublicQuestionnaireResponse } from "./api/v1/questionnaire/route";
+import { StructuredQuestionFlow } from "./structured-question-flow";
 
 export const AI_CONSENT_DISCLOSURE =
   "If enabled, your narrative answers and structured response summary are sent to the configured AI provider to generate this analysis. The app does not use them for advertising or model training on its own behalf.";
@@ -29,6 +30,7 @@ export function nextPhaseAfterConsent(state: AssessmentState): AssessmentState["
 
 type LandingConsentScreenProps = {
   state: AssessmentState;
+  disclaimer: string;
   onStart: () => void;
   onConsentChange: (consent: Partial<AssessmentState["consent"]>) => void;
   onPreferenceChange: (preferences: Partial<AssessmentState["preferences"]>) => void;
@@ -37,6 +39,7 @@ type LandingConsentScreenProps = {
 
 export function LandingConsentScreen({
   state,
+  disclaimer,
   onStart,
   onConsentChange,
   onPreferenceChange,
@@ -54,7 +57,7 @@ export function LandingConsentScreen({
           A self-assessment for adults that reflects on maturity-related behaviors, patterns, and
           trade-offs. It takes about <strong>12–18 minutes</strong> and works without an account.
         </p>
-        <p>{PUBLIC_DISCLAIMER}</p>
+        <p>{disclaimer}</p>
         <p>
           Structured answers go to this application server for deterministic scoring. Narrative text
           goes to an external AI provider only if you explicitly enable optional AI analysis.
@@ -155,12 +158,17 @@ export function LandingConsentScreen({
   );
 }
 
-function LandingConsentFlowInner() {
+function LandingConsentFlowInner({ questionnaire }: { questionnaire: PublicQuestionnaireResponse }) {
   const { state, dispatch } = useAssessment();
+
+  if (state.phase === "assessment") {
+    return <StructuredQuestionFlow questionnaire={questionnaire} />;
+  }
 
   return (
     <LandingConsentScreen
       state={state}
+      disclaimer={questionnaire.disclaimer}
       onStart={() => dispatch({ type: "set_phase", phase: "consent" })}
       onConsentChange={(consent) => dispatch({ type: "set_consent", consent })}
       onPreferenceChange={(preferences) => dispatch({ type: "set_preferences", preferences })}
@@ -169,10 +177,10 @@ function LandingConsentFlowInner() {
   );
 }
 
-export default function LandingConsentFlow() {
+export default function LandingConsentFlow({ questionnaire }: { questionnaire: PublicQuestionnaireResponse }) {
   return (
     <AssessmentProvider questionnaireVersion={QUESTIONNAIRE_VERSION}>
-      <LandingConsentFlowInner />
+      <LandingConsentFlowInner questionnaire={questionnaire} />
       <p className="version-note">
         Questionnaire {QUESTIONNAIRE_VERSION} · Scoring {SCORING_VERSION}
       </p>

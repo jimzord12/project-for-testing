@@ -9,11 +9,13 @@ import {
   PROHIBITED_PRESSURE_COPY,
 } from "./landing-consent-flow";
 import { createInitialAssessmentState, serializeAssessmentState } from "@/client/assessment-state";
+import { PUBLIC_DISCLAIMER } from "@/domain/questionnaire";
 
 function renderScreen(state = createInitialAssessmentState()) {
   return renderToStaticMarkup(
     createElement(LandingConsentScreen, {
       state,
+      disclaimer: PUBLIC_DISCLAIMER,
       onStart: () => undefined,
       onConsentChange: () => undefined,
       onPreferenceChange: () => undefined,

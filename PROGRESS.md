@@ -5,7 +5,7 @@ belong in `docs/experiment/`; they do not change issue status.
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
 
-Last updated: 2026-07-13 (I004 landing and consent implemented)
+Last updated: 2026-07-13 (I005 structured-question flow implemented)
 
 ## Milestones
 
@@ -13,7 +13,7 @@ Last updated: 2026-07-13 (I004 landing and consent implemented)
 | ----- | --------------------------------------------------------------------- | ------- |
 | 0     | Domain core: scaffold, canonical bank, deterministic scoring + tests  | ✅ done |
 | A     | API foundation: questionnaire and score endpoints                     | ✅ done |
-| B     | Client flow: consent → questionnaire → review → deterministic results | ⬜      |
+| B     | Client flow: consent → questionnaire → review → deterministic results | 🟡      |
 | C     | Optional AI layer: provider, safety, analysis                         | ⬜      |
 | D     | Cross-cutting privacy, observability, rate limits, security, CI       | 🟡      |
 | E     | QA: E2E journeys, accessibility, AI evaluation                        | ⬜      |
@@ -39,7 +39,7 @@ Last updated: 2026-07-13 (I004 landing and consent implemented)
 | [I002](docs/issues/I002-score-api.md)                | Server-authoritative score API                        | A     | Phase 0          | ✅     |
 | [I003](docs/issues/I003-client-state-persistence.md) | Client state and session persistence                  | B     | I001             | ✅     |
 | [I004](docs/issues/I004-landing-consent.md)          | Landing, eligibility, consent, and preference choices | B     | I003             | ✅     |
-| [I005](docs/issues/I005-questionnaire-shell.md)      | Accessible structured-question flow                   | B     | I003             | ⬜     |
+| [I005](docs/issues/I005-questionnaire-shell.md)      | Accessible structured-question flow                   | B     | I003             | ✅     |
 | [I006](docs/issues/I006-narrative-ui.md)             | Optional narrative exercises                          | B     | I005             | ⬜     |
 | [I007](docs/issues/I007-review-screen.md)            | Review and edit screen                                | B     | I005, I006       | ⬜     |
 | [I008](docs/issues/I008-deterministic-results.md)    | Deterministic results                                 | B     | I002, I003       | ⬜     |
