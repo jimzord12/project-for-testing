@@ -1,6 +1,6 @@
 # I009 — Local result export and synchronous start over
 
-- **Status:** ⬜ not started
+- **Status:** ✅ done
 - **Phase:** B (client flow)
 - **Depends on:** I008
 - **Complexity:** 3

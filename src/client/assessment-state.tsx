@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useReducer } from "react";
+import { createContext, useContext, useEffect, useMemo, useReducer, useRef } from "react";
 import type { Dispatch, ReactNode } from "react";
 import { z } from "zod";
 
@@ -298,6 +298,7 @@ export function AssessmentProvider({
   }, [questionnaireVersion, storage]);
 
   const [state, dispatch] = useReducer(assessmentReducer, initialHydration.state);
+  const suppressNextPersistRef = useRef(false);
 
   const writer = useMemo(() => {
     if (!storage) return null;
@@ -305,6 +306,10 @@ export function AssessmentProvider({
   }, [debounceMs, storage]);
 
   useEffect(() => {
+    if (suppressNextPersistRef.current) {
+      suppressNextPersistRef.current = false;
+      return;
+    }
     writer?.schedule(state);
     return () => writer?.flush();
   }, [state, writer]);
@@ -316,12 +321,14 @@ export function AssessmentProvider({
       hydration: initialHydration.status,
       scoringReadiness: checkScoringReadiness(state, questionnaireVersion),
       discardLocalDraft: () => {
+        suppressNextPersistRef.current = true;
+        writer?.cancel();
         if (storage) clearAssessmentSession(storage);
         dispatch({ type: "reset", questionnaireVersion });
       },
       exportLocalDraft: () => exportRawLocalDraft(state),
     }),
-    [initialHydration.status, questionnaireVersion, state, storage],
+    [initialHydration.status, questionnaireVersion, state, storage, writer],
   );
 
   return <AssessmentContext.Provider value={value}>{children}</AssessmentContext.Provider>;

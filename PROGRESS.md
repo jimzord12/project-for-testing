@@ -5,7 +5,7 @@ belong in `docs/experiment/`; they do not change issue status.
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
 
-Last updated: 2026-07-13 (I008 deterministic results screen implemented)
+Last updated: 2026-07-13 (I009 export and start-over implemented)
 
 ## Milestones
 
@@ -43,7 +43,7 @@ Last updated: 2026-07-13 (I008 deterministic results screen implemented)
 | [I006](docs/issues/I006-narrative-ui.md)             | Optional narrative exercises                          | B     | I005             | ✅     |
 | [I007](docs/issues/I007-review-screen.md)            | Review and edit screen                                | B     | I005, I006       | ✅     |
 | [I008](docs/issues/I008-deterministic-results.md)    | Deterministic results                                 | B     | I002, I003       | ✅     |
-| [I009](docs/issues/I009-export-start-over.md)        | Export and start over                                 | B     | I008             | ⬜     |
+| [I009](docs/issues/I009-export-start-over.md)        | Export and start over                                 | B     | I008             | ✅     |
 | [I010](docs/issues/I010-ai-provider-abstraction.md)  | Provider-agnostic structured AI generation            | C     | Phase 0          | ⬜     |
 | [I012](docs/issues/I012-safety-service.md)           | Layered safety classification and help resources      | C     | I010             | ⬜     |
 | [I011](docs/issues/I011-analyze-api.md)              | Consent-gated analysis API                            | C     | I002, I010, I012 | ⬜     |

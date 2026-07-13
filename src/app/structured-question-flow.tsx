@@ -6,6 +6,7 @@ import type { CSSProperties, KeyboardEvent } from "react";
 import { useAssessment, type AssessmentState } from "@/client/assessment-state";
 import { countWords } from "@/domain/narrative-rubric";
 import { DIMENSION_IDS, type ConfidenceReason, type DimensionId, type DimensionResult } from "@/domain/result-types";
+import { PROMPT_VERSION, QUESTIONNAIRE_VERSION, SCORING_VERSION } from "@/domain/versions";
 import type { ScoreRequest, ScoreSuccessResponse } from "./api/v1/assessments/score/score-service";
 import type { PublicQuestionnaireResponse } from "./api/v1/questionnaire/route";
 
@@ -275,6 +276,159 @@ function formatNarrativeStatus(status: NarrativeReviewStatus): string {
   if (status === "complete") return "Complete";
   if (status === "partial") return "Partial";
   return "Skipped";
+}
+
+export type ExportFormat = "json" | "printable_html";
+
+export type ExportableAiAnalysis =
+  | {
+      status: "completed";
+      headline: string;
+      observations: string[];
+      experiments: string[];
+      narrativeSelfAwareness?: {
+        status: "scored" | "limited_evidence" | "not_scored";
+        score?: number;
+        confidence?: "high" | "moderate" | "low" | "not_available";
+        summary?: string;
+      };
+      uncertaintyNote: string;
+      safetyOrLimitationNote?: string;
+    }
+  | { status: "disabled" }
+  | { status: "unavailable"; reason: "provider_error" | "timeout" | "invalid_model_output" | "rate_limited" | "not_scored" };
+
+export type ResultExportPayload = {
+  schemaVersion: 1;
+  generatedAt: string;
+  versions: {
+    questionnaire: typeof QUESTIONNAIRE_VERSION;
+    scoring: typeof SCORING_VERSION;
+    prompt: typeof PROMPT_VERSION;
+  };
+  disclaimer: string;
+  deterministicResult: ScoreResult;
+  aiAnalysis: ExportableAiAnalysis;
+};
+
+export const RESULT_EXPORT_DISCLAIMER =
+  "This is not a clinical assessment, diagnosis, or literal measure of psychological age.";
+
+export function buildResultExportPayload({
+  result,
+  aiAnalysis = { status: "unavailable", reason: "not_scored" },
+  generatedAt = new Date().toISOString(),
+}: {
+  result: ScoreResult;
+  aiAnalysis?: ExportableAiAnalysis;
+  generatedAt?: string;
+}): ResultExportPayload {
+  return {
+    schemaVersion: 1,
+    generatedAt,
+    versions: {
+      questionnaire: QUESTIONNAIRE_VERSION,
+      scoring: SCORING_VERSION,
+      prompt: PROMPT_VERSION,
+    },
+    disclaimer: RESULT_EXPORT_DISCLAIMER,
+    deterministicResult: result,
+    aiAnalysis,
+  };
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function renderAiAnalysisForExport(aiAnalysis: ExportableAiAnalysis): string {
+  if (aiAnalysis.status === "disabled") return "<p>AI analysis was disabled for this assessment.</p>";
+  if (aiAnalysis.status === "unavailable") {
+    return `<p>AI analysis unavailable: ${escapeHtml(aiAnalysis.reason)}.</p>`;
+  }
+
+  const observations = aiAnalysis.observations.map((observation) => `<li>${escapeHtml(observation)}</li>`).join("");
+  const experiments = aiAnalysis.experiments.map((experiment) => `<li>${escapeHtml(experiment)}</li>`).join("");
+  const nsa = aiAnalysis.narrativeSelfAwareness
+    ? `<p>Narrative Self-Awareness: ${escapeHtml(aiAnalysis.narrativeSelfAwareness.status)}${
+        typeof aiAnalysis.narrativeSelfAwareness.score === "number" ? ` (${aiAnalysis.narrativeSelfAwareness.score})` : ""
+      }${aiAnalysis.narrativeSelfAwareness.summary ? ` — ${escapeHtml(aiAnalysis.narrativeSelfAwareness.summary)}` : ""}</p>`
+    : "";
+
+  return `
+    <h3>${escapeHtml(aiAnalysis.headline)}</h3>
+    <h4>Observations</h4>
+    <ul>${observations}</ul>
+    <h4>Behavioral experiments</h4>
+    <ul>${experiments}</ul>
+    ${nsa}
+    <p>Uncertainty note: ${escapeHtml(aiAnalysis.uncertaintyNote)}</p>
+    ${aiAnalysis.safetyOrLimitationNote ? `<p>Safety or limitation note: ${escapeHtml(aiAnalysis.safetyOrLimitationNote)}</p>` : ""}
+  `;
+}
+
+export function buildPrintableResultHtml(payload: ResultExportPayload): string {
+  const result = payload.deterministicResult;
+  const dimensions = DIMENSION_IDS.map((dimension) => {
+    const dimensionResult = result.dimensions[dimension];
+    const label = DIMENSION_LABELS[dimension];
+    if (dimensionResult.status === "insufficient_data") {
+      return `<li><strong>${escapeHtml(label)}:</strong> Insufficient data. Text equivalent: ${escapeHtml(label)} has insufficient data (${dimensionResult.answered} of ${dimensionResult.required} required scored answers available; ${dimensionResult.available} items total).</li>`;
+    }
+    const band = getDimensionBandLabel(dimensionResult.score);
+    return `<li><strong>${escapeHtml(label)}:</strong> ${dimensionResult.score} / 100 · ${escapeHtml(band)}. Text equivalent: ${escapeHtml(label)} scored ${dimensionResult.score} out of 100 and is in the ${escapeHtml(band)} band.</li>`;
+  }).join("");
+  const confidenceReasons = result.confidence.reasons.length === 0
+    ? "<li>No confidence deductions were applied.</li>"
+    : result.confidence.reasons.map((reason) => `<li>${escapeHtml(formatConfidenceReason(reason))}</li>`).join("");
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Reflective Maturity Profile export</title>
+  <style>
+    body { background: #ffffff; color: #111111; font-family: system-ui, sans-serif; line-height: 1.5; margin: 2rem; }
+    section { border: 1px solid #dddddd; margin: 1rem 0; padding: 1rem; }
+    @media print { * { background: none !important; box-shadow: none !important; text-shadow: none !important; } body { color: #000000; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Reflective Maturity Profile export</h1>
+    <p>Generated ${escapeHtml(payload.generatedAt)}</p>
+    <p>Questionnaire ${escapeHtml(payload.versions.questionnaire)} · Scoring ${escapeHtml(payload.versions.scoring)} · Prompt ${escapeHtml(payload.versions.prompt)}</p>
+    <p>${escapeHtml(payload.disclaimer)}</p>
+    <section aria-labelledby="deterministic-export-title">
+      <h2 id="deterministic-export-title">Deterministic results</h2>
+      <p>Structured Maturity Index: ${result.structuredMaturityIndex === null ? "Unavailable" : `${result.structuredMaturityIndex} / 100`}</p>
+      <p>Confidence: ${escapeHtml(formatConfidenceLabel(result.confidence.label))} (${result.confidence.score} / 100)</p>
+      <ul>${confidenceReasons}</ul>
+      <ul>${dimensions}</ul>
+    </section>
+    <section aria-labelledby="ai-export-title">
+      <h2 id="ai-export-title">AI analysis</h2>
+      ${renderAiAnalysisForExport(payload.aiAnalysis)}
+    </section>
+  </main>
+</body>
+</html>`;
+}
+
+function downloadTextFile(filename: string, mimeType: string, content: string): void {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 const NARRATIVE_PRIVACY_NOTICE =
@@ -615,13 +769,28 @@ export function ReviewScreen({ questionnaire, state, onBack, onEditStep, onSubmi
 export function DeterministicResultsScreen({
   result,
   aiAnalysisEnabled,
+  onExportGenerated,
+  onStartOver,
 }: {
   result: ScoreResult;
   aiAnalysisEnabled: boolean;
+  onExportGenerated?: (format: ExportFormat) => void;
+  onStartOver?: () => void;
 }) {
   const strongest = pickStrongestDimension(result.dimensions);
   const growthAreas = getGrowthAreaDimensions(result.dimensions);
   const unavailableDimension = getIndexUnavailableDimension(result.dimensions);
+  const aiAnalysis: ExportableAiAnalysis = aiAnalysisEnabled ? { status: "unavailable", reason: "not_scored" } : { status: "disabled" };
+
+  const generateExport = (format: ExportFormat) => {
+    const payload = buildResultExportPayload({ result, aiAnalysis });
+    if (format === "json") {
+      downloadTextFile("reflective-maturity-profile-results.json", "application/json", JSON.stringify(payload, null, 2));
+    } else {
+      downloadTextFile("reflective-maturity-profile-results.html", "text/html", buildPrintableResultHtml(payload));
+    }
+    onExportGenerated?.(format);
+  };
 
   return (
     <main
@@ -736,6 +905,33 @@ export function DeterministicResultsScreen({
         <p>{aiAnalysisEnabled ? "AI analysis unavailable" : "AI analysis unavailable"}</p>
         <div data-ai-analysis-slot="reserved-for-I011" />
       </section>
+
+      <section aria-labelledby="export-start-over-title" className="card results-section-card" data-export-content="local-browser-only">
+        <h2 id="export-start-over-title">Export or start over</h2>
+        <p>Exports are generated in this browser only and do not send result content to a third party.</p>
+        <nav className="question-navigation" aria-label="Result export and start over actions">
+          <button type="button" className="secondary-action" onClick={() => generateExport("json")}>
+            Download JSON
+          </button>
+          <button type="button" className="secondary-action" onClick={() => generateExport("printable_html")}>
+            Printable HTML
+          </button>
+          {onStartOver ? (
+            <button
+              type="button"
+              className="danger-action"
+              data-requires-confirmation="true"
+              onClick={() => {
+                if (globalThis.confirm("Delete your current results and answers, then return to the start?")) {
+                  onStartOver();
+                }
+              }}
+            >
+              Start over
+            </button>
+          ) : null}
+        </nav>
+      </section>
     </main>
   );
 }
@@ -753,7 +949,15 @@ function SubmittingScreen({ error }: { error: string | null }) {
   );
 }
 
-export function StructuredQuestionFlow({ questionnaire }: { questionnaire: PublicQuestionnaireResponse }) {
+export function StructuredQuestionFlow({
+  questionnaire,
+  onExportGenerated,
+  invalidateEphemeralAnalysisToken,
+}: {
+  questionnaire: PublicQuestionnaireResponse;
+  onExportGenerated?: (format: ExportFormat) => void;
+  invalidateEphemeralAnalysisToken?: () => void | Promise<void>;
+}) {
   const { state, dispatch, discardLocalDraft } = useAssessment();
   const steps = useMemo(() => buildAssessmentSteps(questionnaire), [questionnaire]);
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
@@ -812,8 +1016,27 @@ export function StructuredQuestionFlow({ questionnaire }: { questionnaire: Publi
   }
 
   if (state.phase === "results" && scoreResult) {
-    return <DeterministicResultsScreen result={scoreResult} aiAnalysisEnabled={state.consent.aiConsent} />;
+    return (
+      <DeterministicResultsScreen
+        result={scoreResult}
+        aiAnalysisEnabled={state.consent.aiConsent}
+        onExportGenerated={onExportGenerated}
+        onStartOver={() => {
+          discardLocalDraft();
+          setScoreResult(null);
+          setScoreError(null);
+          submissionStartedRef.current = false;
+          try {
+            void invalidateEphemeralAnalysisToken?.();
+          } catch {
+            // Local deletion must succeed even when a future ephemeral-token invalidation endpoint fails.
+          }
+        }}
+      />
+    );
   }
+
+  if (state.phase === "landing" || state.phase === "consent") return null;
 
   return (
     <StructuredQuestionScreen
@@ -840,7 +1063,6 @@ export function StructuredQuestionFlow({ questionnaire }: { questionnaire: Publi
       }}
       onExitAndDelete={() => {
         discardLocalDraft();
-        dispatch({ type: "set_phase", phase: "landing" });
       }}
     />
   );

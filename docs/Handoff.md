@@ -2,16 +2,16 @@
 
 Read this first, then `PROGRESS.md`, then the selected file in `docs/issues/`.
 
-_Last updated: 2026-07-13 (I008 deterministic results implementation handoff)_
+_Last updated: 2026-07-13 (I009 export/start-over implementation handoff)_
 
 ## Current state
 
-Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, and I019 are complete locally.
-I008 has been implemented with deterministic result rendering and score-API submission from
-review. Local verification is passing (`pnpm test`, `pnpm typecheck`, `pnpm build`, and the
-required `maturity_age_metaphor|maturityAgeMetaphor|AI analysis unavailable` source search
-described below) and it is ready for independent reviewer-Cron validation. Export/start-over
-and optional AI product issues are still open.
+Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, I009, and I019 are complete locally.
+I009 has been implemented with browser-only JSON/printable HTML export and synchronous
+start-over deletion from the deterministic results screen. Local verification is passing
+(`pnpm test`, `pnpm typecheck`, `pnpm build`, and the required
+`onExportGenerated|sessionStorage` source search described below) and it is ready for
+independent reviewer-Cron validation. Optional AI product issues are still open.
 
 The code/scaffold baseline is source commit `7eb39bd`. The current Hermes skill-test branch
 started from `d9386bd`. Authoritative product specifications are local at `docs/DOMAIN.md`
@@ -30,7 +30,7 @@ Hermes workflow state:
 - START task id: `t_bd4b6145`
 - Current state: START is complete; I001 `t_6ee254df`, I002 `t_63b0cdfc`, I003
   `t_3d63fb10`, I004 `t_2841b822`, I005 `t_4b7e78fa`, I006 `t_411b4971`, I007
-  `t_1f2110f1`, I008 `t_0b4cc633`, and I019 `t_e8990795` have local implementations/review
+  `t_1f2110f1`, I008 `t_0b4cc633`, I009 `t_5c130c65`, and I019 `t_e8990795` have local implementations/review
   status as noted below. Old I002 root
   `t_21792a89` and its decomposed children `t_5bee910c`, `t_544bc896`, `t_f1d032e5`,
   `t_1dffbdd9`, and `t_38397722` were permanently deleted after archiving. Fresh I002 task
@@ -73,9 +73,32 @@ The new config defaults are `kanban.block_loop_decompose_after: 4` and
 
 ## Next work
 
-Review I008 task `t_0b4cc633`. If it passes, complete it and allow the board to continue to
-I009 export/start-over work. If it fails, unblock `t_0b4cc633` with precise reviewer
+Review I009 task `t_5c130c65`. If it passes, complete it and allow the board to continue to
+I010 provider-abstraction work. If it fails, unblock `t_5c130c65` with precise reviewer
 findings rather than decomposing it.
+
+## Latest I009 implementation notes
+
+- Added browser-only export helpers in `src/app/structured-question-flow.tsx`:
+  `buildResultExportPayload`, `buildPrintableResultHtml`, local download generation, prompt/
+  questionnaire/scoring version identifiers, generated timestamp, disclaimer, confidence
+  reasons, AI disabled/unavailable/completed states, and a forward-compatible completed AI
+  observation/experiment seam that excludes raw rubric values and raw narrative drafts.
+- The printable HTML export is self-contained, escapes every supplied AI/model string, includes
+  explicit print CSS that strips decorative backgrounds/shadows, and preserves dimension text
+  equivalents.
+- `DeterministicResultsScreen` now renders `Download JSON`, `Printable HTML`, and confirmed
+  `Start over` controls, plus the metadata-only `onExportGenerated(format)` hook for I013.
+- Hardened `src/client/assessment-state.tsx` discard behavior to cancel pending debounced
+  session writes and suppress the immediate reset write, so start-over removes
+  `rmp.assessment.draft.v1` synchronously and a same-tick assertion remains true even when a
+  future ephemeral-token invalidation hook fails.
+- Experiment record: `docs/experiment/records/2026-07-13-I009-export-start-over.md`.
+- Fresh verification passed: focused red `pnpm vitest run src/app/structured-question-flow.test.ts`
+  failed for missing I009 exports/controls/start-over; focused green passed (1 file / 33 tests),
+  full `pnpm test` passed (12 files / 121 tests), `pnpm typecheck` passed, `pnpm build`
+  passed, and required Git Bash search `grep -RInE "onExportGenerated|sessionStorage" src || true`
+  returned expected hook/test and session-storage references.
 
 ## Latest I008 implementation notes
 

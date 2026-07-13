@@ -14,6 +14,8 @@ import {
   buildAssessmentSteps,
   buildDimensionReviewCounts,
   buildScoreRequestFromState,
+  buildPrintableResultHtml,
+  buildResultExportPayload,
   enforceNarrativeFieldCap,
   getAdjacentStepIndex,
   getDimensionBandLabel,
@@ -32,7 +34,7 @@ import {
   serializeAssessmentState,
 } from "@/client/assessment-state";
 import { getPublicQuestionnaire } from "@/domain/questionnaire";
-import { QUESTIONNAIRE_VERSION, SCORING_VERSION } from "@/domain/versions";
+import { PROMPT_VERSION, QUESTIONNAIRE_VERSION, SCORING_VERSION } from "@/domain/versions";
 import { countWords } from "@/domain/narrative-rubric";
 import type { ScoreSuccessResponse } from "./api/v1/assessments/score/score-service";
 import { publicQuestionnaireResponseSchema, type PublicQuestionnaireResponse } from "./api/v1/questionnaire/route";
@@ -111,6 +113,23 @@ function renderResults(result: ScoreSuccessResponse["result"], aiAnalysisEnabled
       aiAnalysisEnabled,
     }),
   );
+}
+
+function completedAiAnalysisFixture() {
+  return {
+    status: "completed" as const,
+    headline: "<script>alert('x')</script> Pattern insight",
+    observations: ["You paused before sending the reply.", "<img src=x onerror=alert(1)>"],
+    experiments: ["Try a 10-minute delay before charged messages.", "Name the trade-off in one sentence."],
+    narrativeSelfAwareness: {
+      status: "scored" as const,
+      score: 7,
+      confidence: "moderate" as const,
+      summary: "Specific but still uncertain.",
+    },
+    uncertaintyNote: "Model output is an aid, not a verdict.",
+    safetyOrLimitationNote: "If this feels urgent, seek human support.",
+  };
 }
 
 class MemoryStorage implements Storage {
@@ -683,5 +702,186 @@ describe("I008 score submission integration", () => {
     expect(container.textContent).toContain("Structured Maturity Index");
     expect(container.textContent).toContain("68 / 100");
     expect(container.textContent).toContain("AI analysis unavailable");
+  });
+});
+
+describe("I009 local result export", () => {
+  it("builds a local JSON export with version identifiers, disclaimer, confidence reasons, and completed AI observations only", () => {
+    const payload = buildResultExportPayload({
+      result: reportableResultFixture({
+        confidence: {
+          score: 73,
+          label: "moderate",
+          reasons: [{ code: "low_coverage", missingOrNa: 3, deducted: 8 }],
+        },
+      }),
+      aiAnalysis: completedAiAnalysisFixture(),
+      generatedAt: "2026-07-13T04:30:00.000Z",
+    });
+
+    expect(payload.generatedAt).toBe("2026-07-13T04:30:00.000Z");
+    expect(payload.versions).toEqual({
+      questionnaire: QUESTIONNAIRE_VERSION,
+      scoring: SCORING_VERSION,
+      prompt: PROMPT_VERSION,
+    });
+    expect(payload.disclaimer).toContain("not a clinical assessment");
+    expect(payload.deterministicResult.confidence.reasons).toEqual([
+      { code: "low_coverage", missingOrNa: 3, deducted: 8 },
+    ]);
+    expect(payload.aiAnalysis).toMatchObject({
+      status: "completed",
+      headline: "<script>alert('x')</script> Pattern insight",
+      observations: ["You paused before sending the reply.", "<img src=x onerror=alert(1)>"],
+      experiments: ["Try a 10-minute delay before charged messages.", "Name the trade-off in one sentence."],
+    });
+    expect(JSON.stringify(payload)).not.toContain("rubric");
+    expect(JSON.stringify(payload)).not.toContain("I paused before replying");
+  });
+
+  it("represents disabled and unavailable AI states without requiring a network request", () => {
+    const disabled = buildResultExportPayload({ result: reportableResultFixture(), aiAnalysis: { status: "disabled" } });
+    const unavailable = buildResultExportPayload({
+      result: reportableResultFixture(),
+      aiAnalysis: { status: "unavailable", reason: "provider_error" },
+    });
+
+    expect(disabled.aiAnalysis).toEqual({ status: "disabled" });
+    expect(unavailable.aiAnalysis).toEqual({ status: "unavailable", reason: "provider_error" });
+  });
+
+  it("generates escaped self-contained printable HTML with print CSS and accessible text equivalents", () => {
+    const html = buildPrintableResultHtml(buildResultExportPayload({
+      result: reportableResultFixture({ maturityAgeMetaphor: 54 }),
+      aiAnalysis: completedAiAnalysisFixture(),
+      generatedAt: "2026-07-13T04:30:00.000Z",
+    }));
+
+    expect(html).toContain("<!doctype html>");
+    expect(html).toContain("Questionnaire RMP-1.0 · Scoring RMP-SCORE-1.0 · Prompt RMP-AI-1.0");
+    expect(html).toContain("This is not a clinical assessment, diagnosis, or literal measure of psychological age.");
+    expect(html).toContain("Text equivalent: Emotional Regulation scored 70 out of 100 and is in the Established band.");
+    expect(html).toContain("@media print");
+    expect(html).toContain("background: none !important");
+    expect(html).toContain("&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt; Pattern insight");
+    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+    expect(html).not.toContain("<script>alert");
+    expect(html).not.toContain("<img src=x");
+  });
+
+  it("renders export controls and sends metadata-only hook events for JSON and printable HTML", () => {
+    const onExportGenerated = vi.fn();
+    const html = renderToStaticMarkup(createElement(DeterministicResultsScreen, {
+      result: reportableResultFixture(),
+      aiAnalysisEnabled: false,
+      onExportGenerated,
+    }));
+
+    expect(html).toContain("Download JSON");
+    expect(html).toContain("Printable HTML");
+    expect(html).toContain("data-export-content=\"local-browser-only\"");
+    expect(html).not.toContain("onExportGenerated");
+
+    const createObjectUrl = vi.fn(() => "blob:local-export");
+    const revokeObjectUrl = vi.fn();
+    vi.stubGlobal("URL", { ...URL, createObjectURL: createObjectUrl, revokeObjectURL: revokeObjectUrl });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    cleanupMountedFlow();
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    act(() => {
+      root.render(createElement(DeterministicResultsScreen, {
+        result: reportableResultFixture(),
+        aiAnalysisEnabled: false,
+        onExportGenerated,
+      }));
+    });
+    mountedRoot = root;
+    mountedContainer = container;
+
+    act(() => getButtonByLabel(container, /^Download JSON$/).click());
+    act(() => getButtonByLabel(container, /^Printable HTML$/).click());
+
+    expect(onExportGenerated).toHaveBeenCalledWith("json");
+    expect(onExportGenerated).toHaveBeenCalledWith("printable_html");
+    expect(onExportGenerated.mock.calls.flat()).not.toContain("68 / 100");
+    expect(createObjectUrl).toHaveBeenCalledTimes(2);
+    expect(revokeObjectUrl).toHaveBeenCalledWith("blob:local-export");
+    expect(clickSpy).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("I009 start over", () => {
+  it("requires confirmation before deleting a draft from results", async () => {
+    vi.spyOn(globalThis, "confirm").mockReturnValue(false);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ assessmentId: "00000000-0000-4000-8000-000000000009", result: reportableResultFixture() }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    const { container, storage } = renderFlowInBrowser({
+      ...createInitialAssessmentState(),
+      phase: "review",
+      structuredAnswers: { ER01: "C" },
+      narratives: { N01: { skipped: false, fields: { event: "raw narrative must stay local" } } },
+    });
+
+    await act(async () => getButtonByLabel(container, /^Submit assessment$/).click());
+    await act(async () => undefined);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    act(() => getButtonByLabel(container, /^Start over$/).click());
+
+    expect(storage.getItem(ASSESSMENT_SESSION_STORAGE_KEY)).not.toBeNull();
+    expect(container.textContent).toContain("Structured Maturity Index");
+  });
+
+  it("synchronously removes session data, clears results, returns to landing, and keeps deletion if token invalidation fails", async () => {
+    vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ assessmentId: "00000000-0000-4000-8000-000000000009", result: reportableResultFixture() }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    const invalidateEphemeralAnalysisToken = vi.fn(() => {
+      throw new Error("token endpoint unavailable");
+    });
+    cleanupMountedFlow();
+    const storage = new MemoryStorage();
+    storage.setItem(ASSESSMENT_SESSION_STORAGE_KEY, serializeAssessmentState({
+      ...createInitialAssessmentState(),
+      phase: "review",
+      structuredAnswers: { ER01: "C" },
+      narratives: { N01: { skipped: false, fields: { event: "delete me now" } } },
+    }));
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    act(() => {
+      root.render(createElement(AssessmentProvider, {
+        storage,
+        debounceMs: 250,
+        children: createElement(StructuredQuestionFlow, {
+          questionnaire: publicQuestionnaireFixture(),
+          invalidateEphemeralAnalysisToken,
+        }),
+      }));
+    });
+    mountedRoot = root;
+    mountedContainer = container;
+
+    await act(async () => getButtonByLabel(container, /^Submit assessment$/).click());
+    await act(async () => undefined);
+
+    act(() => getButtonByLabel(container, /^Start over$/).click());
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(invalidateEphemeralAnalysisToken).toHaveBeenCalledTimes(1);
+    expect(storage.getItem(ASSESSMENT_SESSION_STORAGE_KEY)).toBeNull();
+    expect(container.textContent).not.toContain("Receiving criticism");
+    expect(container.textContent).not.toContain("Structured Maturity Index");
   });
 });
