@@ -431,6 +431,21 @@ function downloadTextFile(filename: string, mimeType: string, content: string): 
   URL.revokeObjectURL(url);
 }
 
+export function emitExportGenerated(format: ExportFormat, fetchImpl: typeof fetch = fetch): void {
+  void fetchImpl("/api/v1/export-event", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      format,
+      versions: {
+        questionnaire: QUESTIONNAIRE_VERSION,
+        scoring: SCORING_VERSION,
+        prompt: PROMPT_VERSION,
+      },
+    }),
+  }).catch(() => undefined);
+}
+
 const NARRATIVE_PRIVACY_NOTICE =
   "These answers may contain personal information. You can skip them and still receive the structured profile. When AI analysis is enabled, the text is sent to the configured AI provider for this analysis.";
 
@@ -789,6 +804,7 @@ export function DeterministicResultsScreen({
     } else {
       downloadTextFile("reflective-maturity-profile-results.html", "text/html", buildPrintableResultHtml(payload));
     }
+    emitExportGenerated(format);
     onExportGenerated?.(format);
   };
 

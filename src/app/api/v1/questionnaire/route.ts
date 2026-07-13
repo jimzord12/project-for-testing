@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getPublicQuestionnaire } from "@/domain/questionnaire";
 import { SCORING_VERSION } from "@/domain/versions";
+import { emitEvent, type OperationalEvent } from "@/server/logging";
 
 export const QUESTIONNAIRE_CACHE_CONTROL = "public, max-age=3600, stale-while-revalidate=86400";
 
@@ -65,6 +66,12 @@ type PublicQuestionnaireStep =
   | PublicQuestionnaire["structured"][number]
   | PublicQuestionnaire["narrative"][number];
 
+type QuestionnaireRouteDependencies = {
+  emit?: (event: OperationalEvent) => void;
+  now?: () => number;
+  createRequestId?: () => string;
+};
+
 function buildSteps(publicQuestionnaire: PublicQuestionnaire): PublicQuestionnaireStep[] {
   const [firstNarrative, secondNarrative] = publicQuestionnaire.narrative;
   if (!firstNarrative || !secondNarrative) {
@@ -91,10 +98,26 @@ function buildResponse(): PublicQuestionnaireResponse {
   });
 }
 
-export function GET() {
-  return NextResponse.json(buildResponse(), {
-    headers: {
-      "Cache-Control": QUESTIONNAIRE_CACHE_CONTROL,
-    },
-  });
+function randomId(): string {
+  return globalThis.crypto.randomUUID();
 }
+
+export function createQuestionnaireGetHandler(deps: QuestionnaireRouteDependencies = {}) {
+  return function questionnaireGetHandler() {
+    const response = buildResponse();
+    (deps.emit ?? ((event) => { emitEvent(event); }))({
+      event: "questionnaire_loaded",
+      requestId: (deps.createRequestId ?? randomId)(),
+      timestamp: new Date(deps.now?.() ?? Date.now()).toISOString(),
+      questionnaireVersion: response.questionnaireVersion,
+      scoringVersion: response.scoringVersion,
+    });
+    return NextResponse.json(response, {
+      headers: {
+        "Cache-Control": QUESTIONNAIRE_CACHE_CONTROL,
+      },
+    });
+  };
+}
+
+export const GET = createQuestionnaireGetHandler();

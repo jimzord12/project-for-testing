@@ -267,7 +267,7 @@ export type AnalysisResponse = z.infer<typeof analysisResponseSchema>;
 
 export type AnalyzeProcessingResult =
   | { ok: true; status: 200; body: AnalysisResponse }
-  | { ok: false; status: 400 | 413 | 415 | 422; body: ScoreErrorResponse };
+  | { ok: false; status: 400 | 413 | 415 | 422 | 429; body: ScoreErrorResponse };
 
 export type AnalyzeGeneration = (
   input: StructuredGenerationInput<ProviderAnalysis>,

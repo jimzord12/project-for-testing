@@ -16,6 +16,7 @@ import {
   buildScoreRequestFromState,
   buildPrintableResultHtml,
   buildResultExportPayload,
+  emitExportGenerated,
   enforceNarrativeFieldCap,
   getAdjacentStepIndex,
   getDimensionBandLabel,
@@ -813,6 +814,26 @@ describe("I009 local result export", () => {
 });
 
 describe("I009 start over", () => {
+
+
+  it("sends export telemetry metadata without blocking when telemetry fails", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("telemetry down"));
+
+    expect(() => emitExportGenerated("printable_html", fetchMock as unknown as typeof fetch)).not.toThrow();
+    await Promise.resolve();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/export-event", expect.objectContaining({
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        format: "printable_html",
+        versions: { questionnaire: QUESTIONNAIRE_VERSION, scoring: SCORING_VERSION, prompt: PROMPT_VERSION },
+      }),
+    }));
+    expect(fetchMock.mock.calls[0]?.[1]?.body).not.toContain("structuredMaturityIndex");
+    expect(fetchMock.mock.calls[0]?.[1]?.body).not.toContain("answers");
+  });
+
   it("requires confirmation before deleting a draft from results", async () => {
     vi.spyOn(globalThis, "confirm").mockReturnValue(false);
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(

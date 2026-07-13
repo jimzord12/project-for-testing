@@ -2,18 +2,22 @@
 
 Read this first, then `PROGRESS.md`, then the selected file in `docs/issues/`.
 
-_Last updated: 2026-07-13 (I011 strict response-contract rework)_
+_Last updated: 2026-07-13 (I013 observability and rate limiting complete)_
 
 ## Current state
 
-Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, I009, I010, I011, I012, and I019 are complete locally.
+Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, I009, I010, I011, I012, I013, and I019 are complete locally.
+I013 has been implemented with typed content-free operational events, final-boundary event
+scrubbing/allowlisting, in-memory score/analyze rate limits with privacy-preserving client keys
+and `Retry-After`, route producers for questionnaire/score/analyze/export telemetry, and
+metadata-only export-event integration that does not block local export failures.
 I011 has been implemented with a consent-gated `POST /api/v1/assessments/analyze` route,
 strict request/response/provider-output schemas, 32 KiB byte-limit handling, server-side deterministic
 recomputation, I012 safety screening before narrative scoreability shortcuts, versioned
 `RMP-AI-1.0` prompt construction with untrusted narrative delimiters, application-owned evidence
-validation, and `calculateNarrativeScore` score ownership. Local verification is passing (`pnpm
-test`, `pnpm typecheck`, `pnpm build`, and the required `RMP-AI-1.0|calculateNarrativeScore|review_fallback`
-source scan described below) and it is ready for independent reviewer-Cron validation.
+validation, and `calculateNarrativeScore` score ownership. Final local verification passed (`pnpm
+test`, `pnpm typecheck`, `pnpm build`, and the required PowerShell `Select-String` source scan for
+`RMP-AI-1.0|calculateNarrativeScore|review_fallback`).
 
 The code/scaffold baseline is source commit `7eb39bd`. The current Hermes skill-test branch
 started from `d9386bd`. Authoritative product specifications are local at `docs/DOMAIN.md`
@@ -75,9 +79,43 @@ The new config defaults are `kanban.block_loop_decompose_after: 4` and
 
 ## Next work
 
-Review I011 task `t_98427cb3`. If it passes, complete it and allow the board to continue to
-I013/I014 downstream privacy/security work. If it fails, unblock `t_98427cb3` with precise
-reviewer findings rather than decomposing it.
+I013 verification is complete. The next product work is I014 downstream security hardening;
+keep its scope separate from I013 telemetry/rate-limit internals, I011 provider transport,
+safety internals, deterministic rendering, and persistence.
+
+## Latest I013 implementation notes
+
+- Added `src/server/logging.ts` with finite operational event schemas and producer-facing builders
+  for questionnaire load, score request/completion/rejection, analysis request/completion/
+  unavailable, safety interruption, and export generation. `emitEvent` recursively scrubs
+  sensitive keys/values, including full IP address strings in allowlisted fields, and validates
+  through strict allowlisted event schemas immediately before serialized output.
+- Added `src/server/rate-limit.ts` with `RATE_LIMIT_ENABLED` defaulting true, SHA-256 derived
+  client keys from coarse request metadata, deterministic injected clocks, disabled mode, explicit
+  allowed/exhausted/disabled result states with reset timestamps, integer retry-after calculation,
+  and bounded lazy eviction.
+- Integrated rate limits and events into score and analyze routes without changing deterministic
+  or AI success response bodies. Exhausted score/analyze requests return HTTP 429 plus integer
+  `Retry-After` and the existing structured error envelope with `RATE_LIMITED`.
+- Integrated questionnaire-loaded events and a minimal `POST /api/v1/export-event` endpoint that
+  accepts only export format plus questionnaire/scoring/prompt version metadata. The results UI
+  sends telemetry asynchronously after local download generation and swallows telemetry failures.
+- Added tests for event declarations/producers, final scrubber/allowlisting, client-key privacy,
+  enabled/disabled limiter behavior, reset and eviction with injected clocks, score/analyze route
+  429 behavior, questionnaire/export events, non-blocking export telemetry failure, explicit
+  route-level producers for `score_rejected`, `safety_interrupted`, provider `analysis_unavailable`,
+  and not-scored `analysis_unavailable`, plus route-level malformed-client-metadata and bounded
+  lazy-eviction coverage for both score and analyze after reviewer rejections. Final rework restored
+  the pre-existing questionnaire route contract tests for cache headers, canonical step ordering,
+  narrative caps/minimums, and absence of score exposure while keeping the questionnaire-loaded
+  telemetry test. Decomposed follow-up task `t_82bdc54a` added deterministic producer-facing
+  builders for every declared operational event and full-IP value redaction at the final logging
+  boundary. Decomposed follow-up task `t_92865e2d` added route-friendly limiter `state`/`resetAt`
+  coverage.
+- Experiment record: `docs/experiment/records/2026-07-13-I013-observability-rate-limit.md`.
+- Fresh verification passed after follow-up task `t_92865e2d`: focused rate-limit/score/analyze
+  route gate (3 files / 34 tests), focused logging/rate-limit gate (2 files / 14 tests),
+  `pnpm test` (19 files / 185 tests), `pnpm typecheck`, and `pnpm build`.
 
 ## Latest I011 implementation notes
 
@@ -135,6 +173,13 @@ reviewer findings rather than decomposing it.
   passed, `pnpm build` passed, and
   required Git Bash search `grep -RInE "RMP-AI-1.0|calculateNarrativeScore|review_fallback" src || true`
   returned expected analyze/domain/safety references.
+- Final verification task `t_4aa215ce` reran the full gate from commit `281902e`: `pnpm test`
+  passed (16 files / 156 tests), `pnpm typecheck` passed, `pnpm build` passed with
+  `/api/v1/assessments/analyze` listed as dynamic, and corrected PowerShell scan
+  `Get-ChildItem -Path src -Recurse -File | Select-String -Pattern "RMP-AI-1.0|calculateNarrativeScore|review_fallback"`
+  returned expected version, narrative-rubric, analyze-service, UI export test, and safety-service
+  references. Experiment record:
+  `docs/experiment/records/2026-07-13-I011-final-verification.md`.
 
 ## Latest I012 implementation notes
 

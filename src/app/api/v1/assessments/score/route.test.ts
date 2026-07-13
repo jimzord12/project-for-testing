@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import { STRUCTURED_QUESTIONS, type StructuredQuestion } from "@/domain/questionnaire";
 import { QUESTIONNAIRE_VERSION } from "@/domain/versions";
-import { POST, SCORE_REQUEST_BYTE_LIMIT, scoreErrorResponseSchema, scoreSuccessResponseSchema } from "./route";
+import { createInMemoryRateLimiter } from "@/server/rate-limit";
+import { POST, SCORE_REQUEST_BYTE_LIMIT, createScorePostHandler, scoreErrorResponseSchema, scoreSuccessResponseSchema } from "./route";
 
 function optionWithScore(question: StructuredQuestion, target: number): string {
   const option = question.options.find((candidate) => candidate.score === target);
@@ -167,5 +168,107 @@ describe("POST /api/v1/assessments/score", () => {
 
     expect(response.status).toBe(413);
     expect(parsed.error.code).toBe("REQUEST_TOO_LARGE");
+  });
+
+
+  it("emits score request and completion events without answers", async () => {
+    const events: unknown[] = [];
+    const handler = createScorePostHandler({
+      createClientKey: () => "score:test-client",
+      createRequestId: () => "00000000-0000-4000-8000-000000000013",
+      now: () => 0,
+      emit: (event) => events.push(event),
+    });
+
+    const response = await handler(jsonRequest(validPayload()));
+
+    expect(response.status).toBe(200);
+    expect(events).toEqual([
+      expect.objectContaining({ event: "score_requested", requestId: "00000000-0000-4000-8000-000000000013" }),
+      expect.objectContaining({ event: "score_completed", requestId: "00000000-0000-4000-8000-000000000013", status: "success", questionnaireVersion: QUESTIONNAIRE_VERSION }),
+    ]);
+    expect(JSON.stringify(events)).not.toContain("ER01");
+  });
+
+  it("emits score rejection events without answers for invalid route input", async () => {
+    const events: unknown[] = [];
+    const handler = createScorePostHandler({
+      createClientKey: () => "score:rejected-event-client",
+      createRequestId: () => "00000000-0000-4000-8000-000000000015",
+      now: () => 0,
+      emit: (event) => events.push(event),
+    });
+
+    const response = await handler(jsonRequest({ questionnaireVersion: QUESTIONNAIRE_VERSION, answers: [{ questionId: "ER01", optionId: "Z" }] }));
+    const body = scoreErrorResponseSchema.parse(await response.json());
+
+    expect(response.status).toBe(422);
+    expect(body.error.code).toBe("INVALID_ANSWER_SET");
+    expect(events).toEqual([
+      expect.objectContaining({ event: "score_requested", requestId: "00000000-0000-4000-8000-000000000015" }),
+      expect.objectContaining({ event: "score_rejected", requestId: "00000000-0000-4000-8000-000000000015", status: "rejected", errorCode: "INVALID_ANSWER_SET" }),
+    ]);
+    expect(JSON.stringify(events)).not.toContain('"questionId":"ER01"');
+    expect(JSON.stringify(events)).not.toContain('"optionId":"Z"');
+  });
+
+  it("returns 429 with integer Retry-After when score rate limit is exhausted, then allows after reset", async () => {
+    let now = 0;
+    const handler = createScorePostHandler({
+      createClientKey: () => "score:limited-client",
+      createRequestId: () => "00000000-0000-4000-8000-000000000014",
+      rateLimiter: createInMemoryRateLimiter({ limit: 1, windowMs: 1_000, now: () => now }),
+      now: () => now,
+      emit: () => undefined,
+    });
+
+    expect((await handler(jsonRequest(validPayload()))).status).toBe(200);
+    const limited = await handler(jsonRequest(validPayload()));
+    const body = scoreErrorResponseSchema.parse(await limited.json());
+
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBe("1");
+    expect(body.error.code).toBe("RATE_LIMITED");
+
+    now = 1_000;
+    expect((await handler(jsonRequest(validPayload()))).status).toBe(200);
+  });
+
+  it("derives a privacy-preserving anonymous route key for malformed client metadata", async () => {
+    const limiter = createInMemoryRateLimiter({ limit: 1, windowMs: 1_000, now: () => 0 });
+    const handler = createScorePostHandler({
+      rateLimiter: limiter,
+      createRequestId: () => "00000000-0000-4000-8000-000000000016",
+      now: () => 0,
+      emit: () => undefined,
+    });
+
+    const response = await handler(jsonRequest(validPayload(), { headers: { "content-type": "application/json", "x-forwarded-for": "not an ip", "user-agent": "Route Test Browser" } }));
+
+    expect(response.status).toBe(200);
+    expect(limiter.snapshotKeys()).toHaveLength(1);
+    expect(limiter.snapshotKeys()[0]).toMatch(/^score:[a-f0-9]{64}$/);
+    expect(limiter.snapshotKeys()[0]).not.toContain("not an ip");
+    expect(limiter.snapshotKeys()[0]).not.toContain("Route Test Browser");
+  });
+
+  it("lazily evicts expired score buckets through the route with an injected clock", async () => {
+    let now = 0;
+    const limiter = createInMemoryRateLimiter({ limit: 1, windowMs: 10, maxEntries: 3, evictionBatchSize: 2, now: () => now });
+    const handler = createScorePostHandler({
+      rateLimiter: limiter,
+      createRequestId: () => "00000000-0000-4000-8000-000000000017",
+      now: () => now,
+      emit: () => undefined,
+    });
+
+    for (const ip of ["203.0.113.1", "203.0.113.2", "203.0.113.3"]) {
+      expect((await handler(jsonRequest(validPayload(), { headers: { "content-type": "application/json", "x-forwarded-for": ip, "user-agent": "Route Test Browser" } }))).status).toBe(200);
+    }
+    expect(limiter.snapshotKeys()).toHaveLength(3);
+
+    now = 11;
+    expect((await handler(jsonRequest(validPayload(), { headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.4", "user-agent": "Route Test Browser" } }))).status).toBe(200);
+    expect(limiter.snapshotKeys()).toHaveLength(2);
   });
 });

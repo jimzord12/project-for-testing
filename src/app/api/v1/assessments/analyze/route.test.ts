@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { STRUCTURED_QUESTIONS, type StructuredQuestion } from "@/domain/questionnaire";
 import { QUESTIONNAIRE_VERSION, PROMPT_VERSION } from "@/domain/versions";
+import { createInMemoryRateLimiter } from "@/server/rate-limit";
 import type { SafetyDecision } from "@/server/safety-service";
 import {
   analysisResponseSchema as serviceAnalysisResponseSchema,
@@ -280,5 +281,155 @@ describe("POST /api/v1/assessments/analyze", () => {
     const streamed = await POST(streamRequest(`{ "padding": "${multibyte}" }`));
     expect(streamed.status).toBe(413);
     expect(analysisErrorResponseSchema.parse(await streamed.json()).error.code).toBe("REQUEST_TOO_LARGE");
+  });
+
+
+  it("emits analysis request, completed, safety, and unavailable events without raw narrative", async () => {
+    const events: unknown[] = [];
+    const handler = createAnalyzePostHandler({
+      createClientKey: () => "analyze:event-client",
+      createRequestId: () => "00000000-0000-4000-8000-000000000015",
+      now: () => 0,
+      emit: (event) => events.push(event),
+      classifySafety: vi.fn().mockResolvedValue({ kind: "allow", source: "provider" } satisfies SafetyDecision),
+      generate: vi.fn().mockResolvedValue({ ok: true, object: providerOutput() }),
+    });
+
+    const response = await handler(request(payload({ narratives: { N01: n01, N02: n02 } })));
+
+    expect(response.status).toBe(200);
+    expect(events).toEqual([
+      expect.objectContaining({ event: "analysis_requested", requestId: "00000000-0000-4000-8000-000000000015" }),
+      expect.objectContaining({ event: "analysis_completed", requestId: "00000000-0000-4000-8000-000000000015", status: "success" }),
+    ]);
+    expect(JSON.stringify(events)).not.toContain("interrupted my teammate");
+    expect(JSON.stringify(events)).not.toContain("volunteering for extra work");
+  });
+
+  it("emits a safety interruption event from the route without raw narrative", async () => {
+    const events: unknown[] = [];
+    const generate = vi.fn();
+    const handler = createAnalyzePostHandler({
+      createClientKey: () => "analyze:safety-event-client",
+      createRequestId: () => "00000000-0000-4000-8000-000000000017",
+      now: () => 0,
+      emit: (event) => events.push(event),
+      classifySafety: vi.fn().mockResolvedValue({ kind: "interrupt", category: "self_harm_immediate", source: "rule" } satisfies SafetyDecision),
+      generate,
+    });
+
+    const response = await handler(
+      request(payload({ narratives: { N01: { skipped: false, fields: { event: "I will kill myself tonight.", selfStory: "", newUnderstanding: "" } }, N02: { skipped: true, fields: {} } } })),
+    );
+
+    expect(response.status).toBe(200);
+    expect(analysisResponseSchema.parse(await response.json()).status).toBe("safety_interruption");
+    expect(generate).not.toHaveBeenCalled();
+    expect(events).toEqual([
+      expect.objectContaining({ event: "analysis_requested", requestId: "00000000-0000-4000-8000-000000000017" }),
+      expect.objectContaining({ event: "safety_interrupted", requestId: "00000000-0000-4000-8000-000000000017", status: "interrupted", errorCode: "SELF_HARM_IMMEDIATE" }),
+    ]);
+    expect(JSON.stringify(events)).not.toContain("kill myself");
+  });
+
+  it("emits analysis unavailable events from provider and not-scored route responses without raw narrative", async () => {
+    const unavailableEvents: unknown[] = [];
+    const unavailableHandler = createAnalyzePostHandler({
+      createClientKey: () => "analyze:unavailable-event-client",
+      createRequestId: () => "00000000-0000-4000-8000-000000000018",
+      now: () => 0,
+      emit: (event) => unavailableEvents.push(event),
+      classifySafety: vi.fn().mockResolvedValue({ kind: "allow", source: "provider" } satisfies SafetyDecision),
+      generate: vi.fn().mockResolvedValue({ ok: false, reason: "timeout" }),
+    });
+
+    const unavailableResponse = await unavailableHandler(request(payload({ narratives: { N01: n01, N02: n02 } })));
+
+    expect(unavailableResponse.status).toBe(200);
+    expect(analysisResponseSchema.parse(await unavailableResponse.json())).toMatchObject({ status: "unavailable", reason: "timeout" });
+    expect(unavailableEvents).toEqual([
+      expect.objectContaining({ event: "analysis_requested", requestId: "00000000-0000-4000-8000-000000000018" }),
+      expect.objectContaining({ event: "analysis_unavailable", requestId: "00000000-0000-4000-8000-000000000018", status: "unavailable", errorCode: "TIMEOUT" }),
+    ]);
+    expect(JSON.stringify(unavailableEvents)).not.toContain("interrupted my teammate");
+    expect(JSON.stringify(unavailableEvents)).not.toContain("volunteering for extra work");
+
+    const notScoredEvents: unknown[] = [];
+    const notScoredHandler = createAnalyzePostHandler({
+      createClientKey: () => "analyze:not-scored-event-client",
+      createRequestId: () => "00000000-0000-4000-8000-000000000019",
+      now: () => 0,
+      emit: (event) => notScoredEvents.push(event),
+    });
+
+    const notScoredResponse = await notScoredHandler(request(payload()));
+
+    expect(notScoredResponse.status).toBe(200);
+    expect(analysisResponseSchema.parse(await notScoredResponse.json())).toMatchObject({ status: "not_scored", reason: "narrative_skipped" });
+    expect(notScoredEvents).toEqual([
+      expect.objectContaining({ event: "analysis_requested", requestId: "00000000-0000-4000-8000-000000000019" }),
+      expect.objectContaining({ event: "analysis_unavailable", requestId: "00000000-0000-4000-8000-000000000019", status: "unavailable", errorCode: "NARRATIVE_SKIPPED" }),
+    ]);
+    expect(JSON.stringify(notScoredEvents)).not.toContain("fields");
+  });
+
+  it("returns 429 with integer Retry-After when analyze rate limit is exhausted, then allows after reset", async () => {
+    let now = 0;
+    const handler = createAnalyzePostHandler({
+      createClientKey: () => "analyze:limited-client",
+      createRequestId: () => "00000000-0000-4000-8000-000000000016",
+      rateLimiter: createInMemoryRateLimiter({ limit: 1, windowMs: 2_000, now: () => now }),
+      now: () => now,
+      emit: () => undefined,
+    });
+
+    expect((await handler(request(payload()))).status).toBe(200);
+    const response = await handler(request(payload()));
+    const body = analysisErrorResponseSchema.parse(await response.json());
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("2");
+    expect(body.error.code).toBe("RATE_LIMITED");
+
+    now = 2_000;
+    expect((await handler(request(payload()))).status).toBe(200);
+  });
+
+  it("derives a privacy-preserving anonymous analyze route key for malformed client metadata", async () => {
+    const limiter = createInMemoryRateLimiter({ limit: 1, windowMs: 1_000, now: () => 0 });
+    const handler = createAnalyzePostHandler({
+      rateLimiter: limiter,
+      createRequestId: () => "00000000-0000-4000-8000-000000000020",
+      now: () => 0,
+      emit: () => undefined,
+    });
+
+    const response = await handler(request(payload(), { headers: { "x-forwarded-for": "not an ip", "user-agent": "Analyze Route Browser" } }));
+
+    expect(response.status).toBe(200);
+    expect(limiter.snapshotKeys()).toHaveLength(1);
+    expect(limiter.snapshotKeys()[0]).toMatch(/^analyze:[a-f0-9]{64}$/);
+    expect(limiter.snapshotKeys()[0]).not.toContain("not an ip");
+    expect(limiter.snapshotKeys()[0]).not.toContain("Analyze Route Browser");
+  });
+
+  it("lazily evicts expired analyze buckets through the route with an injected clock", async () => {
+    let now = 0;
+    const limiter = createInMemoryRateLimiter({ limit: 1, windowMs: 10, maxEntries: 3, evictionBatchSize: 2, now: () => now });
+    const handler = createAnalyzePostHandler({
+      rateLimiter: limiter,
+      createRequestId: () => "00000000-0000-4000-8000-000000000021",
+      now: () => now,
+      emit: () => undefined,
+    });
+
+    for (const ip of ["203.0.113.11", "203.0.113.12", "203.0.113.13"]) {
+      expect((await handler(request(payload(), { headers: { "x-forwarded-for": ip, "user-agent": "Analyze Route Browser" } }))).status).toBe(200);
+    }
+    expect(limiter.snapshotKeys()).toHaveLength(3);
+
+    now = 11;
+    expect((await handler(request(payload(), { headers: { "x-forwarded-for": "203.0.113.14", "user-agent": "Analyze Route Browser" } }))).status).toBe(200);
+    expect(limiter.snapshotKeys()).toHaveLength(2);
   });
 });

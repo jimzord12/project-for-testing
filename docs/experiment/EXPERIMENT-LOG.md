@@ -81,6 +81,8 @@ Model limitation | Environment problem | Inconclusive
 | 2026-07-13 | [I010 provider-agnostic structured generation service](records/2026-07-13-I010-ai-provider-abstraction.md) | I010 | Hermes/Codex | Tool defect |
 | 2026-07-13 | [I012 layered safety classification and help resources](records/2026-07-13-I012-safety-service.md) | I012 | Hermes/Codex | Tool defect |
 | 2026-07-13 | [I011 consent-gated analysis API](records/2026-07-13-I011-analyze-api.md) | I011 | Hermes/Codex | Tool defect |
+| 2026-07-13 | [I011 final verification and project-record update](records/2026-07-13-I011-final-verification.md) | I011 | Hermes/Codex | Environment problem |
+| 2026-07-13 | [I013 privacy-safe observability and rate limiting](records/2026-07-13-I013-observability-rate-limit.md) | I013 | Hermes/Codex | Tool defect |
 
 The baseline setup restored source commit `7eb39bd`, added the local DOMAIN/PRD, installed the
 agent workflow, and prepared I001-I019. It is setup provenance, not evidence about a custom tool.

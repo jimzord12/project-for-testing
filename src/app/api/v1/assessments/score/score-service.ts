@@ -122,6 +122,7 @@ export const scoreErrorResponseSchema = z
           "INVALID_REQUEST",
           "INVALID_ANSWER_SET",
           "REQUEST_TOO_LARGE",
+          "RATE_LIMITED",
         ]),
         message: z.string().min(1),
         fieldErrors: z.array(
@@ -151,7 +152,7 @@ export type ScoreProcessingSuccess = {
 
 export type ScoreProcessingError = {
   ok: false;
-  status: 400 | 413 | 415 | 422;
+  status: 400 | 413 | 415 | 422 | 429;
   body: ScoreErrorResponse;
 };
 

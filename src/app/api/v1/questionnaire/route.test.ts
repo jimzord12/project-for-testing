@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { STRUCTURED_QUESTIONS } from "@/domain/questionnaire";
 import { QUESTIONNAIRE_VERSION, SCORING_VERSION } from "@/domain/versions";
-import { GET, publicQuestionnaireResponseSchema } from "./route";
+import { GET, createQuestionnaireGetHandler, publicQuestionnaireResponseSchema } from "./route";
 
 const REQUIRED_DISCLAIMER =
   "This is a reflective self-assessment, not a diagnosis or a scientifically validated measure of literal psychological age. Results depend on self-report, interpretation, current circumstances, and how specifically you answer.";
@@ -64,5 +64,33 @@ describe("GET /api/v1/questionnaire", () => {
         expect(["A", "B", "C", "D", "E", "NA"]).toContain(option.id);
       }
     }
+  });
+});
+
+describe("GET /api/v1/questionnaire observability", () => {
+  it("emits a content-free questionnaire_loaded event", async () => {
+    const events: unknown[] = [];
+    const handler = createQuestionnaireGetHandler({
+      createRequestId: () => "req-questionnaire",
+      now: () => 0,
+      emit: (event) => events.push(event),
+    });
+
+    const response = handler();
+    const body = publicQuestionnaireResponseSchema.parse(await response.json());
+
+    expect(response.status).toBe(200);
+    expect(body.steps).toHaveLength(26);
+    expect(events).toEqual([
+      {
+        event: "questionnaire_loaded",
+        requestId: "req-questionnaire",
+        timestamp: "1970-01-01T00:00:00.000Z",
+        questionnaireVersion: QUESTIONNAIRE_VERSION,
+        scoringVersion: SCORING_VERSION,
+      },
+    ]);
+    expect(JSON.stringify(events)).not.toContain("prompt");
+    expect(JSON.stringify(events)).not.toContain("options");
   });
 });

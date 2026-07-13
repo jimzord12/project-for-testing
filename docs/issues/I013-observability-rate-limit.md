@@ -1,6 +1,6 @@
 # I013 — Privacy-safe observability and rate limiting
 
-- **Status:** ⬜ not started
+- **Status:** ✅ done
 - **Phase:** D (cross-cutting)
 - **Depends on:** I002, I011
 - **Complexity:** 3
