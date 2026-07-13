@@ -7,6 +7,7 @@ import { useAssessment, type AssessmentState } from "@/client/assessment-state";
 import { countWords } from "@/domain/narrative-rubric";
 import { DIMENSION_IDS, type ConfidenceReason, type DimensionId, type DimensionResult } from "@/domain/result-types";
 import { PROMPT_VERSION, QUESTIONNAIRE_VERSION, SCORING_VERSION } from "@/domain/versions";
+import type { AnalysisRequest, AnalysisResponse, CompletedAnalysis } from "./api/v1/assessments/analyze/analyze-service";
 import type { ScoreRequest, ScoreSuccessResponse } from "./api/v1/assessments/score/score-service";
 import type { PublicQuestionnaireResponse } from "./api/v1/questionnaire/route";
 
@@ -213,6 +214,18 @@ export function buildScoreRequestFromState(state: AssessmentState): ScoreRequest
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([questionId, optionId]) => ({ questionId, optionId })),
     preferences: { includeAgeMetaphor: state.preferences.includeAgeMetaphor },
+  };
+}
+
+export function buildAnalyzeRequestFromState(state: AssessmentState): AnalysisRequest {
+  return {
+    questionnaireVersion: state.questionnaireVersion,
+    answers: buildScoreRequestFromState(state).answers,
+    narratives: {
+      N01: { skipped: state.narratives.N01?.skipped ?? false, fields: { event: state.narratives.N01?.fields.event ?? "", selfStory: state.narratives.N01?.fields.selfStory ?? "", newUnderstanding: state.narratives.N01?.fields.newUnderstanding ?? "" } },
+      N02: { skipped: state.narratives.N02?.skipped ?? false, fields: { pattern: state.narratives.N02?.fields.pattern ?? "", contexts: state.narratives.N02?.fields.contexts ?? "", unknown: state.narratives.N02?.fields.unknown ?? "" } },
+    },
+    consent: { aiAnalysis: true },
   };
 }
 
@@ -737,11 +750,17 @@ export function ReviewScreen({ questionnaire, state, onBack, onEditStep, onSubmi
             {narrativeSteps.map((step) => {
               const summary = summarizeNarrativeReviewStatus(questionnaire, step.id, state.narratives[step.id]);
               const editTarget = resolveReviewEditTarget(questionnaire, step.id);
+              const narrativeFields = state.narratives[step.id]?.fields;
               return (
                 <li key={step.id}>
                   <span>
                     {summary.title}: {formatNarrativeStatus(summary.status)} ({summary.wordCount} of {summary.minimumWords} minimum words)
                   </span>
+                  {narrativeFields
+                    ? Object.entries(narrativeFields).map(([fieldId, value]) =>
+                        value ? <p key={fieldId} className="narrative-review-text">{value}</p> : null,
+                      )
+                    : null}
                   {editTarget ? (
                     <button
                       type="button"
@@ -786,16 +805,23 @@ export function DeterministicResultsScreen({
   aiAnalysisEnabled,
   onExportGenerated,
   onStartOver,
+  analysisResponse,
+  analysisLoading,
 }: {
   result: ScoreResult;
   aiAnalysisEnabled: boolean;
   onExportGenerated?: (format: ExportFormat) => void;
   onStartOver?: () => void;
+  analysisResponse?: AnalysisResponse | null;
+  analysisLoading?: boolean;
 }) {
   const strongest = pickStrongestDimension(result.dimensions);
   const growthAreas = getGrowthAreaDimensions(result.dimensions);
   const unavailableDimension = getIndexUnavailableDimension(result.dimensions);
-  const aiAnalysis: ExportableAiAnalysis = aiAnalysisEnabled ? { status: "unavailable", reason: "not_scored" } : { status: "disabled" };
+  const completed = analysisResponse?.status === "completed" ? analysisResponse.analysis : null;
+  const aiAnalysis: ExportableAiAnalysis = completed
+    ? { status: "completed", headline: completed.headline, observations: completed.observations.map((item) => `${item.observedPattern} ${item.possibleInterpretation}`), experiments: completed.behavioralExperiments.map((item) => `${item.trigger} ${item.action} ${item.measurement}`), narrativeSelfAwareness: completed.narrativeScore.status === "not_scored" ? { status: "not_scored" } : { status: completed.narrativeScore.status, score: completed.narrativeScore.score, confidence: completed.narrativeScore.confidence, summary: completed.narrativeReflection }, uncertaintyNote: completed.uncertaintyNote }
+    : aiAnalysisEnabled ? { status: "unavailable", reason: analysisResponse?.status === "unavailable" ? analysisResponse.reason : "not_scored" } : { status: "disabled" };
 
   const generateExport = (format: ExportFormat) => {
     const payload = buildResultExportPayload({ result, aiAnalysis });
@@ -918,8 +944,12 @@ export function DeterministicResultsScreen({
 
       <section aria-labelledby="ai-analysis-slot-title" className="card results-section-card">
         <h2 id="ai-analysis-slot-title">AI analysis</h2>
-        <p>{aiAnalysisEnabled ? "AI analysis unavailable" : "AI analysis unavailable"}</p>
-        <div data-ai-analysis-slot="reserved-for-I011" />
+        {analysisLoading ? <p role="status" aria-live="polite">Reading the response pattern…</p> : null}
+        {!aiAnalysisEnabled ? <p>AI analysis unavailable</p> : null}
+        {analysisResponse?.status === "unavailable" ? <p>AI analysis unavailable: {analysisResponse.reason}.</p> : null}
+        {analysisResponse?.status === "not_scored" ? <p>AI analysis not scored: {analysisResponse.reason}.</p> : null}
+        {analysisResponse?.status === "safety_interruption" ? <div role="alert"><p>Safety interruption: normal AI analysis was suppressed.</p><ul>{analysisResponse.safetyMessage.resources.map((resource) => <li key={resource.id}>{resource.label}: {resource.description}</li>)}</ul></div> : null}
+        {completed ? <CompletedAnalysisView analysis={completed} /> : null}
       </section>
 
       <section aria-labelledby="export-start-over-title" className="card results-section-card" data-export-content="local-browser-only">
@@ -952,6 +982,15 @@ export function DeterministicResultsScreen({
   );
 }
 
+function CompletedAnalysisView({ analysis }: { analysis: CompletedAnalysis }) {
+  return <div data-ai-analysis-status="completed">
+    <h3>{analysis.headline}</h3><p>{analysis.narrativeReflection}</p>
+    <h4>Observations</h4><ul>{analysis.observations.map((item, index) => <li key={index}>{item.observedPattern} {item.possibleInterpretation}</li>)}</ul>
+    <h4>Behavioral experiments</h4><ul>{analysis.behavioralExperiments.map((item, index) => <li key={index}>{item.trigger} {item.action} {item.measurement}</li>)}</ul>
+    <p>Uncertainty: {analysis.uncertaintyNote}</p>
+  </div>;
+}
+
 function SubmittingScreen({ error }: { error: string | null }) {
   return (
     <main className="flow-shell questionnaire-shell">
@@ -978,6 +1017,8 @@ export function StructuredQuestionFlow({
   const steps = useMemo(() => buildAssessmentSteps(questionnaire), [questionnaire]);
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [scoreError, setScoreError] = useState<string | null>(null);
+  const [analysisResponse, setAnalysisResponse] = useState<AnalysisResponse | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
   const submissionStartedRef = useRef(false);
 
   useEffect(() => {
@@ -998,6 +1039,17 @@ export function StructuredQuestionFlow({
         const body = (await response.json()) as ScoreSuccessResponse;
         setScoreResult(body.result);
         dispatch({ type: "set_phase", phase: "results" });
+        if (state.consent.aiConsent) {
+          setAnalysisLoading(true);
+          try {
+            const analysis = await fetch("/api/v1/assessments/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(buildAnalyzeRequestFromState(state)) });
+            setAnalysisResponse(analysis.ok ? (await analysis.json()) as AnalysisResponse : { status: "unavailable", deterministicResult: { ...body.result, maturityAgeMetaphor: null }, reason: "provider_error" });
+          } catch {
+            setAnalysisResponse({ status: "unavailable", deterministicResult: { ...body.result, maturityAgeMetaphor: null }, reason: "provider_error" });
+          } finally {
+            setAnalysisLoading(false);
+          }
+        }
       } catch {
         setScoreError("Deterministic scoring is unavailable. Please review your answers and try submitting again.");
         submissionStartedRef.current = false;
@@ -1036,6 +1088,8 @@ export function StructuredQuestionFlow({
       <DeterministicResultsScreen
         result={scoreResult}
         aiAnalysisEnabled={state.consent.aiConsent}
+        analysisResponse={analysisResponse}
+        analysisLoading={analysisLoading}
         onExportGenerated={onExportGenerated}
         onStartOver={() => {
           discardLocalDraft();

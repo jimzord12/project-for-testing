@@ -148,7 +148,12 @@ export function createAnalyzePostHandler(deps: AnalyzeRouteDependencies = {}) {
       return NextResponse.json(error.body, { status: error.status });
     }
 
-    const result = await processAnalyzeAssessment(parsedJson, { ...deps, createRequestId: () => requestId });
+    const testScenario = request.headers.get("x-rmp-test-scenario");
+    const testTraceId = request.headers.get("x-rmp-test-trace-id");
+    const testProviderEnv = process.env.E2E_TEST_MODE === "1" && testScenario && testTraceId
+      ? { E2E_TEST_MODE: "1", TEST_AI_PROVIDER: "1", TEST_AI_SCENARIO: testScenario, TEST_AI_TRACE_ID: testTraceId }
+      : undefined;
+    const result = await processAnalyzeAssessment(parsedJson, { ...deps, ...(testProviderEnv ? { env: testProviderEnv } : {}), createRequestId: () => requestId });
     const latencyMs = elapsedMs(deps, startedAt);
     if (!result.ok) {
       const responseBody = scoreErrorResponseSchema.parse(result.body);

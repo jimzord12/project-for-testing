@@ -7,6 +7,23 @@ export type AiProviderName = "none" | "anthropic" | "openai";
 
 type AiProviderEnvironment = Partial<Record<string, string | undefined>>;
 
+export type TestAiProviderTrace = { traceId: string; stage: "safety" | "analysis"; scenario: string; system?: string; prompt: string };
+const testAiProviderTraces: TestAiProviderTrace[] = [];
+
+export function getTestAiProviderTraces(traceId?: string): TestAiProviderTrace[] {
+  return testAiProviderTraces.filter((trace) => !traceId || trace.traceId === traceId);
+}
+
+export function clearTestAiProviderTraces(traceId?: string): void {
+  if (!traceId) {
+    testAiProviderTraces.length = 0;
+    return;
+  }
+  for (let index = testAiProviderTraces.length - 1; index >= 0; index -= 1) {
+    if (testAiProviderTraces[index]?.traceId === traceId) testAiProviderTraces.splice(index, 1);
+  }
+}
+
 export type DisabledAiProviderConfig = {
   ok: true;
   provider: "none";
@@ -207,6 +224,42 @@ export async function generateStructuredObject<T>(
   input: StructuredGenerationInput<T>,
   deps: GenerateStructuredObjectDependencies = {},
 ): Promise<StructuredGenerationResult<T>> {
+  const testEnv = deps.env ?? defaultEnvironment();
+  if (testEnv.TEST_AI_PROVIDER === "1") {
+    if (testEnv.E2E_TEST_MODE !== "1" || process.env.NODE_ENV === "production") {
+      return { ok: false, reason: "invalid_configuration", issues: ["TEST_AI_PROVIDER requires E2E_TEST_MODE=1 outside production"] };
+    }
+    const stage = input.system?.includes("safety classifier") ? "safety" : "analysis";
+    const scenario = testEnv.TEST_AI_SCENARIO ?? "completed";
+    const traceId = testEnv.TEST_AI_TRACE_ID ?? "unscoped";
+    testAiProviderTraces.push({ traceId, stage, scenario, ...(input.system ? { system: input.system } : {}), prompt: input.prompt });
+    if (stage === "safety") {
+      return scenario === "safety_interrupt"
+        ? { ok: true, object: { decision: "interrupt", category: "self_harm_immediate" } as T }
+        : { ok: true, object: { decision: "allow" } as T };
+    }
+    if (scenario === "timeout") return { ok: false, reason: "timeout" };
+    const evidenceMatch = input.prompt.match(/"questionId":"([^"]+)"[^}]*"optionId":"([^"]+)"/);
+    const questionId = evidenceMatch?.[1] ?? "ER01";
+    const optionId = evidenceMatch?.[2] ?? "ER01_O1";
+    const criterion = (rationale: string) => ({ score: 1, rationale, evidenceExcerpt: null });
+    return { ok: true, object: {
+      promptVersion: "RMP-AI-1.0",
+      headline: "A careful pattern worth testing",
+      observations: [1, 2, 3].map((number) => ({ observedPattern: `Observed pattern ${number}`, possibleInterpretation: `Possible interpretation ${number}`, evidence: [{ kind: "question", questionId, optionId }] })),
+      narrativeRubric: {
+        specificity: criterion("Some concrete detail is present."), ownership: criterion("Some ownership is present."), emotionalPrecision: criterion("Some emotional precision is present."),
+        causalDepth: criterion("Some causal depth is present."), qualityOfUncertainty: criterion("Some uncertainty is acknowledged."), behavioralIntegration: criterion("Some behavior change is described."),
+        performativeAbstractionPenalty: { score: 0, rationale: "No penalty is needed.", evidenceExcerpt: null },
+      },
+      narrativeReflection: "The supplied reflection points to a pattern that can be tested without treating it as a diagnosis.",
+      behavioralExperiments: [
+        { dimension: "ER", trigger: "Notice activation.", action: "Pause before responding.", measurement: "Record whether a pause occurred.", reviewPeriodDays: 7, stopCondition: "Stop if the exercise increases distress." },
+        { dimension: "PT", trigger: "Notice disagreement.", action: "Write one alternative explanation.", measurement: "Count completed alternatives.", reviewPeriodDays: 14, stopCondition: "Stop if it becomes repetitive." },
+      ],
+      uncertaintyNote: "This analysis is limited to the submitted answers and may not generalize.",
+    } as T };
+  }
   const config = resolveAiProviderConfig({ env: deps.env });
 
   if (!config.ok) {

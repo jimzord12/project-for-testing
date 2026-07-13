@@ -81,6 +81,12 @@ describe("GitHub Actions CI workflow contract", () => {
     expect(workflow).not.toMatch(/secrets\./);
   });
 
+  it("installs Chromium and runs the deterministic Playwright gate", () => {
+    expect(stepBlock("Install Playwright browser")).toContain("run: pnpm exec playwright install --with-deps chromium");
+    expect(stepBlock("Browser journeys")).toContain("run: pnpm test:e2e");
+    expect(workflow.indexOf("- name: Install Playwright browser")).toBeLessThan(workflow.indexOf("- name: Browser journeys"));
+  });
+
   it("builds with sentinel provider secrets before scanning those artifacts", () => {
     const build = stepBlock("Build");
     const scan = stepBlock("Sentinel secret scan");

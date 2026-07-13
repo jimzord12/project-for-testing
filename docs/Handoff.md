@@ -2,11 +2,11 @@
 
 Read this first, then `PROGRESS.md`, then the selected file in `docs/issues/`.
 
-_Last updated: 2026-07-13 (I014 complete)_
+_Last updated: 2026-07-13 (I015 complete)_
 
 ## Current state
 
-Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, I009, I010, I011, I012, I013, I014, and I019 are complete locally.
+Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, I009, I010, I011, I012, I013, I014, I015, and I019 are complete locally.
 I013 has been implemented with typed content-free operational events, final-boundary event
 scrubbing/allowlisting, in-memory score/analyze rate limits with privacy-preserving client keys
 and `Retry-After`, route producers for questionnaire/score/analyze/export telemetry, and
@@ -79,9 +79,19 @@ The new config defaults are `kanban.block_loop_decompose_after: 4` and
 
 ## Next work
 
-I014 is complete locally and ready for independent review via Kanban task `t_d6cdf026`. The next
-product work is I015 full E2E journeys; keep I015 browser journeys separate
-from I014's app-header, artifact-scan, CI-audit, and transport-security contracts.
+I015 is complete after independent acceptance. Acceptance provenance and the reviewer candidate
+commit are recorded in the board `REVIEW_RESULT` metadata for Kanban task `t_e04174ed`. The next
+product work is I016 accessibility verification.
+
+## Latest I015 implementation notes
+
+- Added Playwright 1.61 configuration, package scripts, guarded page/console/network fixtures, reusable flow helpers, and all thirteen required browser journeys.
+- Added an explicitly guarded request-scoped deterministic AI provider and trace endpoint. AI browser paths traverse the real analyze route, safety service, prompt builder, schemas, and provider wrapper.
+- Connected optional AI analysis to the results UI, including completed, timeout/unavailable, not-scored, and safety-interruption states while preserving local exports.
+- The refresh journey exposed and drove a fix for a real React hydration mismatch: storage restoration now occurs after the shared server/client initial render.
+- Fresh Playwright verification passed in parallel (13/13, 8 workers) and single-worker (13/13). Full project gate evidence is in the I015 Kanban submission.
+- Review rework now proves a positive safety-provider trace with no analysis trace, renders narrative HTML/script literally via React on review before traversing the real analyze boundary, and installs/runs Chromium Playwright in CI with a workflow contract test.
+- Fresh post-rework gates passed: 20 Vitest files / 196 tests, typecheck, production build, Playwright 13/13 parallel and 13/13 serial, required source scan, and `git diff --check`.
 
 ## Latest I014 implementation notes
 

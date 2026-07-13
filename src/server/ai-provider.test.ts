@@ -196,6 +196,20 @@ describe("generateStructuredObject", () => {
       );
     }
   });
+
+  it("keeps the deterministic test provider unavailable without the explicit E2E guard", async () => {
+    await expect(generateStructuredObject(
+      { schema: outputSchema, prompt: "Analyze" },
+      { env: { TEST_AI_PROVIDER: "1", TEST_AI_SCENARIO: "completed", TEST_AI_TRACE_ID: "guard" } },
+    )).resolves.toEqual({ ok: false, reason: "invalid_configuration", issues: ["TEST_AI_PROVIDER requires E2E_TEST_MODE=1 outside production"] });
+  });
+
+  it("returns a deterministic provider safety interruption for the guarded safety scenario", async () => {
+    await expect(generateStructuredObject(
+      { schema: z.unknown(), system: "You are a safety classifier", prompt: "Classify ambiguous risk" },
+      { env: { TEST_AI_PROVIDER: "1", E2E_TEST_MODE: "1", TEST_AI_SCENARIO: "safety_interrupt", TEST_AI_TRACE_ID: "safety" } },
+    )).resolves.toEqual({ ok: true, object: { decision: "interrupt", category: "self_harm_immediate" } });
+  });
 });
 
 describe("I010 server-only import boundary", () => {

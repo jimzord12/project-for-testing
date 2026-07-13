@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useReducer, useRef } from "react";
+import { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { Dispatch, ReactNode } from "react";
 import { z } from "zod";
 
@@ -292,13 +292,19 @@ export function AssessmentProvider({
   storage?: Storage;
   debounceMs?: number;
 }) {
-  const initialHydration = useMemo(() => {
-    if (!storage) return { status: "empty", state: createInitialAssessmentState(questionnaireVersion) } as const;
-    return loadAssessmentSession(storage, questionnaireVersion);
-  }, [questionnaireVersion, storage]);
-
-  const [state, dispatch] = useReducer(assessmentReducer, initialHydration.state);
+  const [state, dispatch] = useReducer(assessmentReducer, createInitialAssessmentState(questionnaireVersion));
+  const [hydrationStatus, setHydrationStatus] = useState<AssessmentHydrationResult["status"]>("empty");
+  const hydrationCompleteRef = useRef(false);
   const suppressNextPersistRef = useRef(false);
+
+  useEffect(() => {
+    if (storage) {
+      const hydrated = loadAssessmentSession(storage, questionnaireVersion);
+      dispatch({ type: "replace", state: hydrated.state });
+      setHydrationStatus(hydrated.status);
+    }
+    hydrationCompleteRef.current = true;
+  }, [questionnaireVersion, storage]);
 
   const writer = useMemo(() => {
     if (!storage) return null;
@@ -306,6 +312,7 @@ export function AssessmentProvider({
   }, [debounceMs, storage]);
 
   useEffect(() => {
+    if (!hydrationCompleteRef.current) return;
     if (suppressNextPersistRef.current) {
       suppressNextPersistRef.current = false;
       return;
@@ -318,7 +325,7 @@ export function AssessmentProvider({
     () => ({
       state,
       dispatch,
-      hydration: initialHydration.status,
+      hydration: hydrationStatus,
       scoringReadiness: checkScoringReadiness(state, questionnaireVersion),
       discardLocalDraft: () => {
         suppressNextPersistRef.current = true;
@@ -328,7 +335,7 @@ export function AssessmentProvider({
       },
       exportLocalDraft: () => exportRawLocalDraft(state),
     }),
-    [initialHydration.status, questionnaireVersion, state, storage, writer],
+    [hydrationStatus, questionnaireVersion, state, storage, writer],
   );
 
   return <AssessmentContext.Provider value={value}>{children}</AssessmentContext.Provider>;

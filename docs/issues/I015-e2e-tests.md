@@ -1,6 +1,6 @@
 # I015 — Full browser journeys with real application boundaries
 
-- **Status:** ⬜ not started
+- **Status:** ✅ complete
 - **Phase:** E (QA)
 - **Depends on:** I008, I009, I011
 - **Complexity:** 4
@@ -40,15 +40,15 @@ or prompt-boundary journeys (PRD §6, §21.3).
 
 ## Acceptance criteria
 
-- [ ] All thirteen journeys pass from a clean browser context; journeys 1, 2, 5, 6, 11, 12,
+- [x] All thirteen journeys pass from a clean browser context; journeys 1, 2, 5, 6, 11, 12,
       and 13 may not seed a completed review state.
-- [ ] The keyboard journey uses no mouse/touchscreen API and completes every required screen.
-- [ ] Prompt-injection and safety journeys prove server orchestration through deterministic test-
+- [x] The keyboard journey uses no mouse/touchscreen API and completes every required screen.
+- [x] Prompt-injection and safety journeys prove server orchestration through deterministic test-
       provider traces, not only client serialization.
-- [ ] Timeout and safety outcomes preserve deterministic results and local export.
-- [ ] The suite fails on hydration mismatch, page error, unexpected console output, network request
+- [x] Timeout and safety outcomes preserve deterministic results and local export.
+- [x] The suite fails on hydration mismatch, page error, unexpected console output, network request
       to an unapproved host, or test-provider availability outside the explicit test environment.
-- [ ] Parallel and single-worker runs are deterministic; refresh tests do not use init scripts that
+- [x] Parallel and single-worker runs are deterministic; refresh tests do not use init scripts that
       replay storage seeds on every document.
 
 ## References
