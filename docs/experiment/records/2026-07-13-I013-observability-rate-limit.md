@@ -31,6 +31,7 @@ Hermes Kanban task `t_457a0817` assigned the I013 implementation. The worker rea
 - Reviewer Cron rejected the third submission because the I013 questionnaire telemetry test had replaced existing public questionnaire API contract tests. The final rework restored the route-level cache header, canonical ordering/narrative cap, and no-score-exposure tests while keeping the `questionnaire_loaded` event test.
 - Follow-up Kanban task `t_82bdc54a` tightened the event module by adding deterministic tests for producer-facing builders on every declared event and full-IP redaction in allowlisted fields before serialized emission.
 - Reviewer Cron rejected `t_82bdc54a` after code/tests passed because shared I013 docs mixed logging-child and rate-limit-child state, preventing a clean commit-gated review boundary for one decomposed child at a time. The follow-up clarified child ownership in `docs/Handoff.md`; future decompositions should avoid overlapping required status-doc edits across concurrent children.
+- Follow-up Kanban task `t_e3bb2cc5` found the broad I013 rate-limit tests already passing, then tightened client-key assertions to prove normal request metadata produces stable endpoint-scoped opaque keys and absent/malformed metadata does not appear in retained keys. The patch helper applied the edit but its automatic syntax check surfaced unrelated TypeScript resolution noise from `node_modules`; the project `pnpm typecheck` gate still passed.
 
 ## Verification evidence
 
@@ -48,6 +49,8 @@ Hermes Kanban task `t_457a0817` assigned the I013 implementation. The worker rea
 - Questionnaire-contract rework full gate: `pnpm test` passed (19 files / 183 tests), `pnpm typecheck` passed, `pnpm build` passed, Git Bash `grep -RInE "emitEvent|RATE_LIMIT_ENABLED|Retry-After" src || true` and PowerShell `Get-ChildItem -Path src -Recurse -File | Select-String -Pattern "emitEvent|RATE_LIMIT_ENABLED|Retry-After"` returned expected references, and `git diff --check` exited 0 with only LF-to-CRLF warnings.
 - Logging producer/full-IP rework focused gate: `pnpm vitest run src/server/logging.test.ts` first failed for missing `operationalEventProducers` and unredacted `203.0.113.42`, then passed (1 file / 8 tests).
 - Logging producer/full-IP rework full gate: `pnpm typecheck` passed; `pnpm test` passed (19 files / 185 tests); `pnpm build` passed. After the review-boundary doc clarification, `pnpm vitest run src/server/logging.test.ts`, `pnpm test`, `pnpm typecheck`, `pnpm build`, and `git diff --check` all passed again.
+- Comprehensive test-coverage child `t_e3bb2cc5` focused gate: `pnpm vitest run src/server/rate-limit.test.ts src/server/logging.test.ts src/app/api/v1/assessments/score/route.test.ts src/app/api/v1/assessments/analyze/route.test.ts src/app/api/v1/questionnaire/route.test.ts src/app/api/v1/export-event/route.test.ts src/app/structured-question-flow.test.ts` passed (7 files / 82 tests).
+- Comprehensive test-coverage child `t_e3bb2cc5` full gate: `pnpm test` passed (19 files / 185 tests), `pnpm typecheck` passed, `pnpm build` passed, Git Bash `grep -RInE "emitEvent|RATE_LIMIT_ENABLED|Retry-After" src || true` returned expected references, and `git diff --check` exited 0 with only LF-to-CRLF warnings.
 
 ## Classification
 

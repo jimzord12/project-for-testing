@@ -15,14 +15,20 @@ describe("in-memory privacy-preserving rate limiting", () => {
     expect(isRateLimitEnabled({ RATE_LIMIT_ENABLED: "0" })).toBe(false);
   });
 
-  it("derives stable client keys without retaining full IP addresses or arbitrary headers", async () => {
-    const key = await createClientRateLimitKey(new Headers({
+  it("derives stable normal client keys without retaining full IP addresses or arbitrary headers", async () => {
+    const headers = new Headers({
       "x-forwarded-for": "203.0.113.8, 10.0.0.1",
       "user-agent": "Example Browser",
       authorization: "Bearer secret",
-    }), "score");
+    });
+    const key = await createClientRateLimitKey(headers, "score");
+    const repeatedKey = await createClientRateLimitKey(headers, "score");
+    const analyzeKey = await createClientRateLimitKey(headers, "analyze");
 
     expect(key).toMatch(/^score:[a-f0-9]{64}$/);
+    expect(repeatedKey).toBe(key);
+    expect(analyzeKey).toMatch(/^analyze:[a-f0-9]{64}$/);
+    expect(analyzeKey).not.toBe(key);
     expect(key).not.toContain("203.0.113.8");
     expect(key).not.toContain("10.0.0.1");
     expect(key).not.toContain("Example Browser");
@@ -30,8 +36,13 @@ describe("in-memory privacy-preserving rate limiting", () => {
   });
 
   it("falls back to an anonymous key for absent or malformed client metadata", async () => {
-    await expect(createClientRateLimitKey(new Headers(), "analyze")).resolves.toMatch(/^analyze:[a-f0-9]{64}$/);
-    await expect(createClientRateLimitKey(new Headers({ "x-forwarded-for": "not an ip" }), "analyze")).resolves.toMatch(/^analyze:[a-f0-9]{64}$/);
+    const absent = await createClientRateLimitKey(new Headers(), "analyze");
+    const malformed = await createClientRateLimitKey(new Headers({ "x-forwarded-for": "not an ip" }), "analyze");
+
+    expect(absent).toMatch(/^analyze:[a-f0-9]{64}$/);
+    expect(malformed).toMatch(/^analyze:[a-f0-9]{64}$/);
+    expect(absent).not.toContain("anonymous");
+    expect(malformed).not.toContain("not an ip");
   });
 
   it("returns route-friendly allowed, exhausted, and reset states under an injected clock", () => {
