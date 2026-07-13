@@ -5,7 +5,7 @@ belong in `docs/experiment/`; they do not change issue status.
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
 
-Last updated: 2026-07-13 (I012 safety service implemented)
+Last updated: 2026-07-13 (I011 analyze API strict response-contract rework)
 
 ## Milestones
 
@@ -46,7 +46,7 @@ Last updated: 2026-07-13 (I012 safety service implemented)
 | [I009](docs/issues/I009-export-start-over.md)        | Export and start over                                 | B     | I008             | ✅     |
 | [I010](docs/issues/I010-ai-provider-abstraction.md)  | Provider-agnostic structured AI generation            | C     | Phase 0          | ✅     |
 | [I012](docs/issues/I012-safety-service.md)           | Layered safety classification and help resources      | C     | I010             | ✅     |
-| [I011](docs/issues/I011-analyze-api.md)              | Consent-gated analysis API                            | C     | I002, I010, I012 | ⬜     |
+| [I011](docs/issues/I011-analyze-api.md)              | Consent-gated analysis API                            | C     | I002, I010, I012 | ✅     |
 | [I013](docs/issues/I013-observability-rate-limit.md) | Privacy-safe observability and rate limiting          | D     | I002, I011       | ⬜     |
 | [I014](docs/issues/I014-security-hardening.md)       | Application and transport security hardening          | D     | I002, I008, I011 | ⬜     |
 | [I019](docs/issues/I019-ci-pipeline.md)              | Reproducible CI and repository quality gates          | D     | Phase 0          | ✅     |

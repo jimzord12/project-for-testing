@@ -2,18 +2,18 @@
 
 Read this first, then `PROGRESS.md`, then the selected file in `docs/issues/`.
 
-_Last updated: 2026-07-13 (I012 safety service implementation handoff)_
+_Last updated: 2026-07-13 (I011 strict response-contract rework)_
 
 ## Current state
 
-Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, I009, I010, I012, and I019 are complete locally.
-I012 has been implemented with a server-only layered safety service that combines final
-deterministic immediate-risk interrupts, a dedicated schema-constrained provider classifier
-through the I010 seam, provider-failure `review_fallback`, explicit-country help resources,
-and privacy-safe safety log metadata. Local verification is passing (`pnpm test`,
-`pnpm typecheck`, `pnpm build`, and the required `SafetyDecision|review_fallback|interrupt`
+Phase 0, I001, I002, I003, I004, I005, I006, I007, I008, I009, I010, I011, I012, and I019 are complete locally.
+I011 has been implemented with a consent-gated `POST /api/v1/assessments/analyze` route,
+strict request/response/provider-output schemas, 32 KiB byte-limit handling, server-side deterministic
+recomputation, I012 safety screening before narrative scoreability shortcuts, versioned
+`RMP-AI-1.0` prompt construction with untrusted narrative delimiters, application-owned evidence
+validation, and `calculateNarrativeScore` score ownership. Local verification is passing (`pnpm
+test`, `pnpm typecheck`, `pnpm build`, and the required `RMP-AI-1.0|calculateNarrativeScore|review_fallback`
 source scan described below) and it is ready for independent reviewer-Cron validation.
-Analyze API product work is still open.
 
 The code/scaffold baseline is source commit `7eb39bd`. The current Hermes skill-test branch
 started from `d9386bd`. Authoritative product specifications are local at `docs/DOMAIN.md`
@@ -75,9 +75,60 @@ The new config defaults are `kanban.block_loop_decompose_after: 4` and
 
 ## Next work
 
-Review I012 task `t_d3ffd1d3`. If it passes, complete it and allow the board to continue to
-I011 analyze API work. If it fails, unblock `t_d3ffd1d3` with precise reviewer findings
-rather than decomposing it.
+Review I011 task `t_98427cb3`. If it passes, complete it and allow the board to continue to
+I013/I014 downstream privacy/security work. If it fails, unblock `t_98427cb3` with precise
+reviewer findings rather than decomposing it.
+
+## Latest I011 implementation notes
+
+- Added `src/app/api/v1/assessments/analyze/analyze-service.ts` with strict Zod request and
+  provider-output contracts, deterministic result recomputation, canonical narrative cap checks,
+  explicit `consent.aiAnalysis: true` gating, and finite response states: `completed`,
+  `not_scored`, `safety_interruption`, and `unavailable`.
+- The processing seam calls the I012 safety classifier on all narrative fields before deciding
+  skipped/insufficient narrative states. Safety interrupts and `review_fallback` suppress normal
+  maturity analysis while keeping deterministic results in the response.
+- Added `buildAnalysisPrompt` for the versioned `RMP-AI-1.0` contract. It sends minimized
+  deterministic summaries and answer labels, marks narrative fields as untrusted data, and removes
+  `untrusted_narrative` delimiter escapes while preserving ordinary prompt-injection text as data.
+- The request schema now accepts only canonical N01/N02 narrative field ids (`event`,
+  `selfStory`, `newUnderstanding`, `pattern`, `contexts`, `unknown`) and normalizes missing
+  canonical fields to empty strings, so noncanonical client-supplied fields cannot reach safety
+  screening, scoreability thresholds, prompts, or evidence validation.
+- The provider schema enforces 3-5 observations, 2-3 behavioral experiments, rubric/penalty
+  integers 0-2, 7-45 day review periods, no unknown keys, no markdown, and no HTML. Application
+  code validates question evidence against submitted answers and narrative excerpts against source
+  text with the 24-word cap before returning completed output.
+- Added `src/app/api/v1/assessments/analyze/route.ts` with `application/json` enforcement,
+  malformed JSON handling, and a 32 KiB UTF-8 byte limit.
+- Added `analyze-service.test.ts` and `route.test.ts` covering consent, safety-before-scoreability,
+  prompt injection delimiter handling, direct markdown/HTML/schema/evidence/rubric/aggregate
+  rejection, provider failure mapping, limited evidence, raw narrative response boundaries,
+  content type, malformed JSON, invalid answer sets, oversized bodies, and every HTTP response
+  union (`completed`, `not_scored`, `safety_interruption`, `unavailable`).
+- Experiment record: `docs/experiment/records/2026-07-13-I011-analyze-api.md`.
+- Rework after reviewer rejection added missing route-level tests for `completed`,
+  `safety_interruption`, and `unavailable`, plus direct tests for markdown rejection, invalid
+  rubric values, and provider-supplied aggregate narrative scores.
+- Second rework after reviewer rejection added a regression test proving noncanonical narrative
+  field ids are rejected before safety/provider calls and changed the analyze request schema from
+  arbitrary `z.record(...)` narrative fields to strict canonical field objects.
+- Third rework after reviewer rejection replaced the broad route `analysisResponseSchema` with
+  strict deterministic-result, completed-analysis, safety-message, not-scored, and unavailable
+  response schemas. The route now parses successful service bodies through the exported strict
+  response union before returning JSON, and route tests assert unknown response keys are rejected at
+  the top level, inside `deterministicResult`, and inside completed `analysis`.
+- Current task `t_971c0b37` tightened the contract layer further by moving the exported strict
+  response union and per-variant schemas into `analyze-service.ts`, leaving the route to import the
+  shared contract before returning JSON. Route tests now assert the shared service exports parse and
+  reject unknown keys for all four response variants.
+- Fresh verification passed after rework: focused red tests failed for missing `./analyze-service`
+  and `./route`; focused green `pnpm vitest run src/app/api/v1/assessments/analyze/route.test.ts
+  src/app/api/v1/assessments/analyze/analyze-service.test.ts` passed (2 files / 15 tests), latest
+  focused shared-contract rework gate passed (2 files / 16 tests), full
+  `pnpm test` passed (16 files / 154 tests), `pnpm typecheck` passed, `pnpm build` passed, and
+  required Git Bash search `grep -RInE "RMP-AI-1.0|calculateNarrativeScore|review_fallback" src || true`
+  returned expected analyze/domain/safety references.
 
 ## Latest I012 implementation notes
 
