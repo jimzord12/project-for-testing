@@ -248,11 +248,23 @@ describe("POST /api/v1/assessments/analyze", () => {
     expect(analysisErrorResponseSchema.parse(await malformed.json()).error.code).toBe("MALFORMED_JSON");
   });
 
-  it("rejects missing consent and invalid answer sets", async () => {
-    const noConsent = await POST(request({ ...payload(), consent: { aiAnalysis: false } }));
-    expect(noConsent.status).toBe(400);
-    expect(analysisErrorResponseSchema.parse(await noConsent.json()).error.code).toBe("INVALID_REQUEST");
+  it("rejects missing or false consent before safety or provider work", async () => {
+    const classifySafety = vi.fn().mockResolvedValue({ kind: "allow", source: "provider" } satisfies SafetyDecision);
+    const generate = vi.fn().mockResolvedValue({ ok: true, object: providerOutput() });
+    const handler = createAnalyzePostHandler({ classifySafety, generate });
 
+    for (const body of [payload({ consent: undefined }), payload({ consent: { aiAnalysis: false } })]) {
+      const response = await handler(request(body));
+
+      expect(response.status).toBe(400);
+      expect(analysisErrorResponseSchema.parse(await response.json()).error.code).toBe("INVALID_REQUEST");
+    }
+
+    expect(classifySafety).not.toHaveBeenCalled();
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid answer sets", async () => {
     const invalidAnswers = await POST(request(payload({ answers: [{ questionId: "ER01", optionId: "Z" }] })));
     expect(invalidAnswers.status).toBe(422);
     expect(analysisErrorResponseSchema.parse(await invalidAnswers.json()).error.code).toBe("INVALID_ANSWER_SET");

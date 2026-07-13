@@ -95,3 +95,9 @@ Record format:
 - **Fix:** Run `pnpm build` (or `pnpm dev`) once to generate it. Domain unit tests/typecheck
   do not depend on it.
 - **Detector:** none — verify manually (clean-checkout `tsc` behavior).
+
+### Stale fnm pnpm shim can point at a deleted Corepack path
+- **Symptom:** `pnpm ...` fails with `Cannot find module 'C:\c\Users\...\node_modules\corepack\dist\pnpm.js'` from an `fnm_multishells` shim.
+- **Cause:** The Git Bash `PATH` may put a stale fnm multishell directory before the stable pnpm install.
+- **Fix:** Before verification commands, run `export PATH="/c/Users/jimzord12/AppData/Local/pnpm:$PATH"; hash -r` and retry `pnpm`.
+- **Detector:** none — verify manually (depends on the current shell's transient fnm multishell path).

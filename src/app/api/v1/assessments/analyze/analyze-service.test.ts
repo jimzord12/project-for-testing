@@ -128,6 +128,24 @@ describe("processAnalyzeAssessment", () => {
     expect(JSON.stringify(response.body)).not.toContain("kill myself");
   });
 
+  it("suppresses provider analysis after safety review fallback while preserving deterministic results", async () => {
+    const generate = vi.fn().mockResolvedValue({ ok: true, object: providerOutput() });
+    const classifySafety = vi.fn().mockResolvedValue({ kind: "review_fallback", category: "ambiguous_high_risk", source: "provider" } satisfies SafetyDecision);
+
+    const response = await processAnalyzeAssessment(validRequest(), { generate, classifySafety });
+
+    expect(classifySafety).toHaveBeenCalledTimes(1);
+    expect(generate).not.toHaveBeenCalled();
+    expect(response.ok).toBe(true);
+    if (!response.ok) throw new Error("expected success");
+    expect(response.body).toMatchObject({
+      status: "safety_interruption",
+      deterministicResult: { structuredMaturityIndex: 100 },
+      safetyMessage: { category: "ambiguous_high_risk" },
+    });
+    expect(JSON.stringify(response.body)).not.toContain("project conflict");
+  });
+
   it("returns not_scored only after safety allows below-threshold narrative content", async () => {
     const generate = vi.fn().mockResolvedValue({ ok: true, object: providerOutput() });
     const classifySafety = vi.fn().mockResolvedValue({ kind: "allow", source: "provider" } satisfies SafetyDecision);
@@ -183,24 +201,31 @@ describe("processAnalyzeAssessment", () => {
   it("maps invalid provider schema, unsafe strings, bad evidence, provider aggregates, and provider failures to unavailable responses", async () => {
     const classifySafety = vi.fn().mockResolvedValue({ kind: "allow", source: "provider" } satisfies SafetyDecision);
     const cases = [
-      { ok: true, object: providerOutput({ extra: "unknown" }) },
-      { ok: true, object: providerOutput({ headline: "<b>unsafe</b>" }) },
-      { ok: true, object: providerOutput({ headline: "**markdown is unsafe**" }) },
-      { ok: true, object: providerOutput({ narrativeRubric: { ...providerOutput().narrativeRubric, specificity: rubricCriterion(3 as 0 | 1 | 2, "project conflict") } }) },
-      { ok: true, object: providerOutput({ narrativeScore: { status: "usable", raw: 99, adjusted: 99 } }) },
-      { ok: true, object: providerOutput({ observations: [{ ...providerOutput().observations[0], evidence: [{ kind: "question", questionId: "ER01", optionId: "Z" }] }, providerOutput().observations[1], providerOutput().observations[2]] }) },
-      { ok: true, object: providerOutput({ observations: [{ ...providerOutput().observations[0], evidence: [{ kind: "narrative_excerpt", exerciseId: "N01", excerpt: "invented words not in source" }] }, providerOutput().observations[1], providerOutput().observations[2]] }) },
-      { ok: true, object: providerOutput({ observations: [{ ...providerOutput().observations[0], evidence: [{ kind: "narrative_excerpt", exerciseId: "N01", excerpt: "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twentyone twentytwo twentythree twentyfour twentyfive" }] }, providerOutput().observations[1], providerOutput().observations[2]] }) },
-      { ok: false, reason: "timeout" },
-      { ok: false, reason: "rate_limited" },
-      { ok: false, reason: "provider_failure", retryable: false },
+      { result: { ok: true, object: providerOutput({ extra: "unknown" }) }, expectedReason: "invalid_model_output" },
+      { result: { ok: true, object: providerOutput({ headline: "<b>unsafe</b>" }) }, expectedReason: "invalid_model_output" },
+      { result: { ok: true, object: providerOutput({ headline: "**markdown is unsafe**" }) }, expectedReason: "invalid_model_output" },
+      { result: { ok: true, object: providerOutput({ narrativeRubric: { ...providerOutput().narrativeRubric, specificity: rubricCriterion(3 as 0 | 1 | 2, "project conflict") } }) }, expectedReason: "invalid_model_output" },
+      { result: { ok: true, object: providerOutput({ behavioralExperiments: [{ ...providerOutput().behavioralExperiments[0], reviewPeriodDays: 6 }, providerOutput().behavioralExperiments[1]] }) }, expectedReason: "invalid_model_output" },
+      { result: { ok: true, object: providerOutput({ behavioralExperiments: [{ ...providerOutput().behavioralExperiments[0], reviewPeriodDays: 46 }, providerOutput().behavioralExperiments[1]] }) }, expectedReason: "invalid_model_output" },
+      { result: { ok: true, object: providerOutput({ narrativeScore: { status: "usable", raw: 99, adjusted: 99 } }) }, expectedReason: "invalid_model_output" },
+      { result: { ok: true, object: providerOutput({ observations: [{ ...providerOutput().observations[0], evidence: [{ kind: "question", questionId: "ER99", optionId: "A" }] }, providerOutput().observations[1], providerOutput().observations[2]] }) }, expectedReason: "invalid_model_output" },
+      { result: { ok: true, object: providerOutput({ observations: [{ ...providerOutput().observations[0], evidence: [{ kind: "question", questionId: "ER01", optionId: "Z" }] }, providerOutput().observations[1], providerOutput().observations[2]] }) }, expectedReason: "invalid_model_output" },
+      { result: { ok: true, object: providerOutput({ observations: [{ ...providerOutput().observations[0], evidence: [{ kind: "narrative_excerpt", exerciseId: "N01", excerpt: "invented words not in source" }] }, providerOutput().observations[1], providerOutput().observations[2]] }) }, expectedReason: "invalid_model_output" },
+      { result: { ok: true, object: providerOutput({ observations: [{ ...providerOutput().observations[0], evidence: [{ kind: "narrative_excerpt", exerciseId: "N01", excerpt: "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twentyone twentytwo twentythree twentyfour twentyfive" }] }, providerOutput().observations[1], providerOutput().observations[2]] }) }, expectedReason: "invalid_model_output" },
+      { result: { ok: false, reason: "disabled" }, expectedReason: "provider_error" },
+      { result: { ok: false, reason: "invalid_configuration" }, expectedReason: "provider_error" },
+      { result: { ok: false, reason: "timeout" }, expectedReason: "timeout" },
+      { result: { ok: false, reason: "rate_limited" }, expectedReason: "rate_limited" },
+      { result: { ok: false, reason: "refusal" }, expectedReason: "provider_error" },
+      { result: { ok: false, reason: "invalid_output" }, expectedReason: "invalid_model_output" },
+      { result: { ok: false, reason: "provider_failure", retryable: false }, expectedReason: "provider_error" },
     ];
 
-    for (const result of cases) {
+    for (const { result, expectedReason } of cases) {
       const response = await processAnalyzeAssessment(validRequest(), { classifySafety, generate: vi.fn().mockResolvedValue(result) });
       expect(response.ok).toBe(true);
       if (!response.ok) throw new Error("expected success");
-      expect(response.body.status).toBe("unavailable");
+      expect(response.body).toMatchObject({ status: "unavailable", reason: expectedReason });
       expect(JSON.stringify(response.body)).not.toContain("invented words");
     }
   });

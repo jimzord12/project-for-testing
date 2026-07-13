@@ -122,11 +122,17 @@ reviewer findings rather than decomposing it.
   response union and per-variant schemas into `analyze-service.ts`, leaving the route to import the
   shared contract before returning JSON. Route tests now assert the shared service exports parse and
   reject unknown keys for all four response variants.
+- Current task `t_6698e7ff` added the final comprehensive I011 test pass with no production-code
+  changes: direct helper coverage for `review_fallback` suppressing provider analysis while keeping
+  deterministic results, invalid review-period bounds, invalid question evidence IDs, and all typed
+  provider transport failure mappings; route coverage now proves missing and false consent short-
+  circuit before safety/provider work.
 - Fresh verification passed after rework: focused red tests failed for missing `./analyze-service`
   and `./route`; focused green `pnpm vitest run src/app/api/v1/assessments/analyze/route.test.ts
   src/app/api/v1/assessments/analyze/analyze-service.test.ts` passed (2 files / 15 tests), latest
-  focused shared-contract rework gate passed (2 files / 16 tests), full
-  `pnpm test` passed (16 files / 154 tests), `pnpm typecheck` passed, `pnpm build` passed, and
+  focused shared-contract rework gate passed (2 files / 16 tests), latest comprehensive-test gate
+  passed (2 files / 18 tests), full `pnpm test` passed (16 files / 156 tests), `pnpm typecheck`
+  passed, `pnpm build` passed, and
   required Git Bash search `grep -RInE "RMP-AI-1.0|calculateNarrativeScore|review_fallback" src || true`
   returned expected analyze/domain/safety references.
 
